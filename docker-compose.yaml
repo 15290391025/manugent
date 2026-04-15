@@ -1,0 +1,100 @@
+version: "3.8"
+
+services:
+  # ============================================
+  # ManuGent Core API
+  # ============================================
+  manugent-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${API_PORT:-8000}:8000"
+      - "${MCP_PORT:-8001}:8001"
+    volumes:
+      - ./configs:/app/configs
+      - ./logs:/app/logs
+    env_file:
+      - configs/.env
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://manugent:manugent@postgres:5432/manugent
+      - REDIS_URL=redis://redis:6379/0
+
+  # ============================================
+  # PostgreSQL + TimescaleDB
+  # ============================================
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: manugent
+      POSTGRES_PASSWORD: manugent
+      POSTGRES_DB: manugent
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # ============================================
+  # Redis
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  # ============================================
+  # Ollama (Local LLM Inference) - Optional
+  # ============================================
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-data:/root/.olama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    # Uncomment for GPU support
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # ============================================
+  # Web UI
+  # ============================================
+  web-ui:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./web:/app
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    command: sh -c "npm install && npm run dev"
+    restart: unless-stopped
+
+  # ============================================
+  # MQTT Broker (Optional)
+  # ============================================
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./configs/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: unless-stopped
+
+volumes:
+  pg-data:
+  redis-data:
+  ollama-data:
