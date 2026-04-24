@@ -43,23 +43,36 @@ ManuGent 方式：
 
 ## 3. 架构概览
 
-```text
-用户 / Web Demo / API
-        │
-        ▼
-Session Manager ── Memory Store(SQLite)
-        │                 │
-        ▼                 ▼
-MES Agent ─────── Audit / Incident / Preference Memory
-        │
-        ▼
-Manufacturing Tool Protocol
-        │
-        ├── DemoMESConnector
-        └── RestConnector
-        │
-        ▼
-MES / ERP / QMS / 设备系统
+```mermaid
+flowchart TB
+    user["用户<br/>工程 / 班长 / 质量 / 设备"]
+    demo["Web Demo / CLI / API"]
+    api["FastAPI Gateway<br/>/chat /query /workflows"]
+
+    session["Session Manager<br/>会话隔离 + memory scope"]
+    agent["MES Agent Core<br/>LLM + 受控工具调用"]
+    graph["LangGraph RCA Workflow<br/>生产 → 质量 → 设备 → 证据 → 报告"]
+
+    tools["Manufacturing Tool Protocol<br/>typed MES tools + safety levels"]
+    memory["Memory Store<br/>session / incident / factory fact / preference / audit"]
+    evidence["Evidence Chain<br/>production / quality / material / equipment / memory"]
+
+    connectors["Connectors<br/>DemoMESConnector / RestConnector"]
+    systems["MES / QMS / ERP / Equipment"]
+    approval["企业审批边界<br/>MES / BPM / Lark / 自研系统"]
+
+    user --> demo --> api
+    api --> session --> agent
+    agent --> graph
+    agent --> tools
+    graph --> tools
+    graph --> evidence
+    session <--> memory
+    agent --> memory
+    graph --> memory
+    tools --> connectors --> systems
+    evidence --> api
+    tools -. action tools .-> approval
 ```
 
 核心原则：
@@ -136,6 +149,7 @@ curl -X POST http://localhost:8000/query \\
 ## 7. 关键文档
 
 - [项目故事：为什么需要 MES Agent](docs/PROJECT_STORY_ZH.md)
+- [架构介绍图](docs/ARCHITECTURE_DIAGRAM.md)
 - [MES 领域模型](docs/MES_DOMAIN_MODEL.md)
 - [根因分析工作流](docs/ROOT_CAUSE_WORKFLOW.md)
 - [记忆、会话和持久化](docs/SESSION_AND_PERSISTENCE.md)
