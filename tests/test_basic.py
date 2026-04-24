@@ -231,6 +231,9 @@ async def test_root_cause_workflow_evidence_chain():
     assert EvidenceType.EQUIPMENT in evidence_types
     assert EvidenceType.MEMORY in evidence_types
     assert any(item.requires_approval for item in report.recommendations)
+    assert "良率下降" in report.finding
+    assert any("当前良率" in item.summary for item in report.evidence)
+    assert any("隔离物料批次" in item.action for item in report.recommendations)
 
 
 @pytest.mark.asyncio

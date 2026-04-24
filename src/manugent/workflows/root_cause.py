@@ -76,8 +76,9 @@ class RootCauseWorkflow:
             evidence_type=EvidenceType.PRODUCTION,
             source_tool="query_production_data",
             summary=(
-                f"Yield is {summary['current']}%, trend={summary['trend']}, "
-                f"average={summary['average']}%."
+                f"当前良率为 {summary['current']}%，趋势为"
+                f"{self._translate_trend(summary['trend'])}，"
+                f"区间平均良率为 {summary['average']}%。"
             ),
             confidence=0.9,
             data=summary,
@@ -90,7 +91,10 @@ class RootCauseWorkflow:
         return Evidence(
             evidence_type=EvidenceType.QUALITY,
             source_tool="get_quality_records",
-            summary=f"Top defect is {top_defect[0]} with {top_defect[1]} records.",
+            summary=(
+                f"最高频缺陷为 {self._translate_defect(top_defect[0])}，"
+                f"共 {top_defect[1]} 条记录。"
+            ),
             confidence=0.86,
             data={"top_defects": top_defects, "total_defects": summary["total_defects"]},
         )
@@ -102,7 +106,7 @@ class RootCauseWorkflow:
         return Evidence(
             evidence_type=EvidenceType.MATERIAL,
             source_tool="get_quality_records",
-            summary=f"Defects concentrate on material lot {top_lot[0]} ({top_lot[1]} records).",
+            summary=f"缺陷集中在物料批次 {top_lot[0]}，关联记录 {top_lot[1]} 条。",
             confidence=0.82,
             data={"top_material_lot": top_lot[0], "count": top_lot[1]},
         )
@@ -118,10 +122,14 @@ class RootCauseWorkflow:
             if event.get("severity") in {"warning", "critical"}
         ]
         event_names = [event.get("event", "unknown") for event in warnings]
+        translated_events = [self._translate_event(event) for event in event_names]
         return Evidence(
             evidence_type=EvidenceType.EQUIPMENT,
             source_tool="get_equipment_history",
-            summary=f"{equipment_id} has {len(warnings)} warning events: {', '.join(event_names)}.",
+            summary=(
+                f"{equipment_id} 存在 {len(warnings)} 条告警事件："
+                f"{'、'.join(translated_events) if translated_events else '暂无'}。"
+            ),
             confidence=0.8 if warnings else 0.35,
             data={"equipment_id": equipment_id, "events": warnings},
         )
@@ -151,8 +159,8 @@ class RootCauseWorkflow:
         material = next(item for item in evidence if item.evidence_type == EvidenceType.MATERIAL)
         equipment = next(item for item in evidence if item.evidence_type == EvidenceType.EQUIPMENT)
         return (
-            "Yield drop is most likely caused by a combined material/equipment issue: "
-            f"{material.summary} {equipment.summary}"
+            "本次良率下降最可能由物料批次异常与设备状态波动共同触发："
+            f"{material.summary}{equipment.summary}"
         )
 
     def _score_confidence(self, evidence: list[Evidence]) -> float:
@@ -164,30 +172,53 @@ class RootCauseWorkflow:
     def _recommend_actions(self, evidence: list[Evidence]) -> list[Recommendation]:
         material = next(item for item in evidence if item.evidence_type == EvidenceType.MATERIAL)
         equipment = next(item for item in evidence if item.evidence_type == EvidenceType.EQUIPMENT)
-        lot = material.data.get("top_material_lot", "suspect material lot")
-        equipment_id = equipment.data.get("equipment_id", "suspect equipment")
+        lot = material.data.get("top_material_lot", "可疑物料批次")
+        equipment_id = equipment.data.get("equipment_id", "可疑设备")
         return [
             Recommendation(
-                action=f"Quarantine {lot} and compare SPI/AOI records against previous lots.",
+                action=f"隔离物料批次 {lot}，并与上一批次的 SPI/AOI 记录做对比。",
                 owner="quality_engineer",
-                rationale="Defects cluster by material lot.",
+                rationale="缺陷记录在同一物料批次上聚集，需要先排除批次性来料问题。",
             ),
             Recommendation(
                 action=(
-                    f"Inspect {equipment_id}, focusing on nozzle pickup "
-                    "and feeder vibration alarms."
+                    f"检查 {equipment_id}，重点确认吸嘴取料稳定性和飞达振动告警。"
                 ),
                 owner="equipment_engineer",
-                rationale="Equipment warning events overlap with the yield drop window.",
+                rationale="设备告警与良率下降窗口重叠，存在设备状态影响贴装质量的风险。",
             ),
             Recommendation(
-                action="Run first-article inspection for the next 30 panels before full release.",
+                action="后续 30 片先执行首件/加严检查，确认缺陷收敛后再恢复正常放行。",
                 owner="production_supervisor",
                 requires_approval=True,
-                rationale="Containment requires line-level production control.",
+                rationale="该动作会影响产线放行节奏，属于生产控制边界。",
             ),
         ]
 
     def _infer_equipment_id(self, line_id: str) -> str:
         suffix = line_id.split("-")[-1]
         return f"MOUNTER-{suffix}A"
+
+    def _translate_trend(self, trend: str) -> str:
+        return {
+            "up": "上升",
+            "down": "下降",
+            "stable": "稳定",
+        }.get(trend, trend)
+
+    def _translate_defect(self, defect: str) -> str:
+        return {
+            "solder_bridge": "锡桥",
+            "missing_component": "缺件",
+            "tombstone": "立碑",
+            "offset": "偏移",
+            "unknown": "未知缺陷",
+        }.get(defect, defect)
+
+    def _translate_event(self, event: str) -> str:
+        return {
+            "NOZZLE_PICKUP_LOW": "吸嘴取料率偏低",
+            "FEEDER_VIBRATION_HIGH": "飞达振动偏高",
+            "TEMPERATURE_DRIFT": "温度漂移",
+            "unknown": "未知事件",
+        }.get(event, event)
