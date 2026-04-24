@@ -44,6 +44,7 @@ ManuGent is designed to show practical understanding of both MES and Agent syste
 | Industrial safety | Read-only tools auto-run, advisory tools produce recommendations, write-like actions require approval |
 | Memory architecture | ChatGPT-inspired memory layers adapted to MES: session, incidents, factory facts, preferences, audit |
 | Session isolation | Each API `session_id` gets isolated Agent history and memory scope |
+| Agent safety | Optional API token, tool safety levels, approval queue skeleton, audit memory |
 | Connector abstraction | Demo and REST connectors share one tool interface, making real MES integration incremental |
 
 ## Why ManuGent?
@@ -203,6 +204,7 @@ Core design docs:
 - [MES_DOMAIN_MODEL.md](docs/MES_DOMAIN_MODEL.md)
 - [ROOT_CAUSE_WORKFLOW.md](docs/ROOT_CAUSE_WORKFLOW.md)
 - [SESSION_AND_PERSISTENCE.md](docs/SESSION_AND_PERSISTENCE.md)
+- [SECURITY_MODEL.md](docs/SECURITY_MODEL.md)
 - [DEMO_SCENARIOS.md](docs/DEMO_SCENARIOS.md)
 
 ## Memory Model
@@ -287,6 +289,7 @@ ManuGent is an early reference implementation. The current vertical slice includ
 - Manufacturing tool registry
 - Layered memory module with in-memory backend and audit capture
 - SQLite memory persistence and API session isolation
+- Security model, optional API token guard, and approval queue skeleton
 - FastAPI server
 - Typer CLI
 - Docker Compose
@@ -295,7 +298,8 @@ ManuGent is an early reference implementation. The current vertical slice includ
 Next milestones:
 
 - Session isolation and API authentication
-- API authentication and RBAC
+- Enterprise identity/RBAC integration points
+- Persistent approval queue and approved-action execution
 - Persistent memory backends: PostgreSQL/vector retrieval
 - Configurable REST field mappings
 - LangGraph workflow for root-cause analysis

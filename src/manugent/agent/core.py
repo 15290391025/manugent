@@ -22,6 +22,7 @@ from manugent.protocol.tools import (
     SafetyLevel,
     list_tools,
 )
+from manugent.security.approvals import ApprovalQueue, ApprovalRequest
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,8 @@ class AgentConfig:
     connector: MESConnector
     memory_store: MemoryStore | None = None
     memory_scope: str = "default"
+    approval_queue: ApprovalQueue | None = None
+    approval_session_id: str = "default"
     system_prompt: str = ""
     max_tool_calls: int = 10
     require_approval_for: list[str] = field(default_factory=lambda: [
@@ -97,12 +100,16 @@ class MESAgent:
         system_prompt: str = "",
         memory_store: MemoryStore | None = None,
         memory_scope: str = "default",
+        approval_queue: ApprovalQueue | None = None,
+        approval_session_id: str = "default",
     ) -> None:
         self.config = AgentConfig(
             llm=llm,
             connector=connector,
             memory_store=memory_store,
             memory_scope=memory_scope,
+            approval_queue=approval_queue,
+            approval_session_id=approval_session_id,
             system_prompt=system_prompt or self._build_system_prompt(),
         )
         self._history: list[BaseMessage] = []
@@ -209,20 +216,22 @@ class MESAgent:
 
                     # Check if approval needed
                     tool_def = MANUFACTURING_TOOLS.get(tool_name)
-                    needs_approval = (
-                        tool_def and tool_def.safety_level in (
-                            SafetyLevel.APPROVAL_REQUIRED,
-                            SafetyLevel.RESTRICTED,
-                        )
-                    )
+                    needs_approval = self._requires_approval(tool_def)
 
                     if needs_approval:
+                        approval_request = self._submit_approval_request(
+                            tool_name,
+                            tool_args,
+                            tool_def,
+                        )
                         tool_result = {
                             "status": "needs_approval",
                             "message": f"操作 '{tool_name}' 需要人工确认。参数: {tool_args}",
                             "tool": tool_name,
                             "params": tool_args,
                         }
+                        if approval_request:
+                            tool_result["approval_request_id"] = approval_request.request_id
                     else:
                         # Execute tool against MES
                         result = await self.config.connector.execute_tool(tool_name, tool_args)
@@ -273,14 +282,35 @@ class MESAgent:
 
         For when you already know which tool to call.
         """
+        tool_def = MANUFACTURING_TOOLS.get(tool_name)
+        if self._requires_approval(tool_def):
+            approval_request = self._submit_approval_request(tool_name, params, tool_def)
+            tool_result = {
+                "status": "needs_approval",
+                "tool": tool_name,
+                "params": params,
+                "approval_request_id": (
+                    approval_request.request_id if approval_request else None
+                ),
+            }
+            self._remember_tool_call(tool_name, params, tool_result, tool_def)
+            return QueryResult(success=True, data=tool_result)
+
         result = await self.config.connector.execute_tool(tool_name, params)
         self._remember_tool_call(
             tool_name,
             params,
             result.to_dict(),
-            MANUFACTURING_TOOLS.get(tool_name),
+            tool_def,
         )
         return result
+
+    def _requires_approval(self, tool_def: MCPTool | None) -> bool:
+        return bool(
+            tool_def
+            and tool_def.safety_level
+            in (SafetyLevel.APPROVAL_REQUIRED, SafetyLevel.RESTRICTED)
+        )
 
     def _build_memory_context(self, message: str) -> str:
         """Build prompt memory context for the current turn."""
@@ -290,6 +320,23 @@ class MESAgent:
             query=message,
             scope=self.config.memory_scope,
         )
+
+    def _submit_approval_request(
+        self,
+        tool_name: str,
+        tool_args: dict[str, Any],
+        tool_def: MCPTool | None,
+    ) -> ApprovalRequest | None:
+        """Submit an approval request for safety-gated tool calls."""
+        if self.config.approval_queue is None:
+            return None
+        request = ApprovalRequest(
+            tool_name=tool_name,
+            params=tool_args,
+            safety_level=tool_def.safety_level.value if tool_def else "unknown",
+            session_id=self.config.approval_session_id,
+        )
+        return self.config.approval_queue.submit(request)
 
     def _remember_tool_call(
         self,

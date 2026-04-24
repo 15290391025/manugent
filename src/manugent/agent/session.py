@@ -10,6 +10,7 @@ from langchain_core.language_models import BaseChatModel
 from manugent.agent.core import MESAgent
 from manugent.connector.base import MESConnector
 from manugent.memory import MemoryStore
+from manugent.security.approvals import ApprovalQueue
 
 
 @dataclass
@@ -19,6 +20,7 @@ class AgentSessionManager:
     llm_factory: Callable[[], BaseChatModel]
     connector_factory: Callable[[], MESConnector]
     memory_store: MemoryStore | None = None
+    approval_queue: ApprovalQueue | None = None
     default_scope: str = "default"
     _sessions: dict[str, MESAgent] = field(default_factory=dict)
 
@@ -31,6 +33,8 @@ class AgentSessionManager:
                 connector=self.connector_factory(),
                 memory_store=self.memory_store,
                 memory_scope=self._scope_for(resolved_id),
+                approval_queue=self.approval_queue,
+                approval_session_id=resolved_id,
             )
         return self._sessions[resolved_id]
 

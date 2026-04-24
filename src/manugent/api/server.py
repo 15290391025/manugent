@@ -13,8 +13,9 @@ import logging
 from contextlib import asynccontextmanager, suppress
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from manugent.agent.core import AgentResponse
@@ -24,11 +25,13 @@ from manugent.connector.base import MESConnectionConfig
 from manugent.connector.factory import create_connector
 from manugent.memory import SQLiteMemoryStore
 from manugent.protocol.tools import MANUFACTURING_TOOLS, list_tools
+from manugent.security import ApprovalDecision, ApprovalQueue, verify_bearer_token
 
 logger = logging.getLogger(__name__)
 
 # Global state
 _session_manager: AgentSessionManager | None = None
+_approval_queue: ApprovalQueue | None = None
 _settings: Settings | None = None
 
 
@@ -86,6 +89,13 @@ class HealthResponse(BaseModel):
     active_sessions: int = 0
 
 
+class ApprovalDecisionRequest(BaseModel):
+    """Approval decision request."""
+    approved: bool
+    decided_by: str = Field(default="human", description="Approver identifier")
+    reason: str = Field(default="", description="Decision rationale")
+
+
 # ============================================
 # App Lifecycle
 # ============================================
@@ -93,7 +103,7 @@ class HealthResponse(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    global _session_manager, _settings
+    global _approval_queue, _session_manager, _settings
 
     # Startup
     _settings = Settings.from_env()
@@ -111,6 +121,7 @@ async def lifespan(app: FastAPI):
         timeout=_settings.mes.mes_timeout,
     )
     memory_store = SQLiteMemoryStore(_settings.db.memory_db_path)
+    _approval_queue = ApprovalQueue()
 
     def llm_factory():
         return _settings.llm.get_llm()
@@ -123,6 +134,7 @@ async def lifespan(app: FastAPI):
         llm_factory=llm_factory,
         connector_factory=connector_factory,
         memory_store=memory_store,
+        approval_queue=_approval_queue,
         default_scope=_settings.mes.mes_type,
     )
     logger.info(f"Session manager initialized with {_settings.llm.provider}/{_settings.llm.model}")
@@ -152,6 +164,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def optional_api_token_guard(request: Request, call_next):
+    """Optional local API token guard.
+
+    Enterprise auth should normally be handled by SSO/API Gateway. This guard is
+    a direct-deployment safeguard enabled only when MANUGENT_API_TOKEN is set.
+    """
+    if _settings and _settings.app.api_token:
+        authorization = request.headers.get("Authorization")
+        if not verify_bearer_token(authorization, _settings.app.api_token):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Invalid or missing bearer token"},
+            )
+    return await call_next(request)
 
 
 # ============================================
@@ -261,6 +290,37 @@ async def clear_chat_history(session_id: str | None = None):
         raise HTTPException(status_code=503, detail="Agent not initialized")
     cleared = _session_manager.clear(session_id)
     return {"status": "ok", "cleared": cleared, "session_id": session_id}
+
+
+@app.get("/approvals")
+async def list_approvals(session_id: str | None = None):
+    """List pending approval requests."""
+    if not _approval_queue:
+        raise HTTPException(status_code=503, detail="Approval queue not initialized")
+    return {
+        "approvals": [
+            request.to_dict()
+            for request in _approval_queue.list_pending(session_id=session_id)
+        ]
+    }
+
+
+@app.post("/approvals/{request_id}/decision")
+async def decide_approval(request_id: str, decision: ApprovalDecisionRequest):
+    """Approve or reject a pending request."""
+    if not _approval_queue:
+        raise HTTPException(status_code=503, detail="Approval queue not initialized")
+    updated = _approval_queue.decide(
+        ApprovalDecision(
+            request_id=request_id,
+            approved=decision.approved,
+            decided_by=decision.decided_by,
+            reason=decision.reason,
+        )
+    )
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Approval request not found")
+    return updated.to_dict()
 
 
 # ============================================

@@ -172,6 +172,36 @@ async def test_agent_query_writes_audit_memory():
 
 
 @pytest.mark.asyncio
+async def test_agent_query_requires_approval_for_action_tools():
+    """Test direct queries do not execute approval-required action tools."""
+    from manugent.agent.core import MESAgent
+    from manugent.connector.demo import DemoMESConnector
+    from manugent.security import ApprovalQueue
+
+    class DummyLLM:
+        async def ainvoke(self, *args, **kwargs):  # pragma: no cover
+            raise AssertionError("query() should not invoke the LLM")
+
+    approvals = ApprovalQueue()
+    connector = DemoMESConnector()
+    await connector.connect()
+    agent = MESAgent(
+        llm=DummyLLM(),
+        connector=connector,
+        approval_queue=approvals,
+        approval_session_id="shift-a",
+    )
+
+    result = await agent.query("suggest_schedule", {"line_ids": ["SMT-03"]})
+    pending = approvals.list_pending("shift-a")
+
+    assert result.success
+    assert result.data["status"] == "needs_approval"
+    assert result.data["approval_request_id"] == pending[0].request_id
+    assert pending[0].tool_name == "suggest_schedule"
+
+
+@pytest.mark.asyncio
 async def test_root_cause_workflow_evidence_chain():
     """Test deterministic RCA workflow returns typed evidence and actions."""
     from manugent.connector.demo import DemoMESConnector
@@ -248,3 +278,48 @@ def test_session_manager_isolates_agent_history():
     assert manager.count() == 2
     assert manager.clear("a") is True
     assert manager.count() == 1
+
+
+def test_optional_bearer_token_verification():
+    """Test minimal API token guard helper."""
+    from manugent.security import verify_bearer_token
+
+    assert verify_bearer_token(None, "") is True
+    assert verify_bearer_token("Bearer secret", "secret") is True
+    assert verify_bearer_token("Bearer wrong", "secret") is False
+    assert verify_bearer_token("Basic secret", "secret") is False
+
+
+def test_approval_queue_lifecycle():
+    """Test approval queue submit/list/decide lifecycle."""
+    from manugent.security import (
+        ApprovalDecision,
+        ApprovalQueue,
+        ApprovalRequest,
+        ApprovalStatus,
+    )
+
+    queue = ApprovalQueue()
+    request = queue.submit(
+        ApprovalRequest(
+            tool_name="suggest_schedule",
+            params={"line_ids": ["SMT-03"]},
+            safety_level="approval",
+            session_id="shift-a",
+        )
+    )
+
+    assert queue.get(request.request_id) is request
+    assert queue.list_pending("shift-a") == [request]
+
+    updated = queue.decide(
+        ApprovalDecision(
+            request_id=request.request_id,
+            approved=False,
+            reason="Need supervisor review",
+        )
+    )
+
+    assert updated is not None
+    assert updated.status == ApprovalStatus.REJECTED
+    assert queue.list_pending("shift-a") == []

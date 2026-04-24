@@ -87,6 +87,7 @@ class AppSettings(BaseSettings):
     api_host: str = Field(default="0.0.0.0", alias="API_HOST")
     api_port: int = Field(default=8000, alias="API_PORT")
     mcp_port: int = Field(default=8001, alias="MCP_PORT")
+    api_token: str = Field(default="", alias="MANUGENT_API_TOKEN")
     jwt_secret: str = Field(default="change-me", alias="JWT_SECRET")
     audit_enabled: bool = Field(default=True, alias="AUDIT_ENABLED")
     edge_mode: bool = Field(default=False, alias="EDGE_MODE")
