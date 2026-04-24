@@ -79,10 +79,10 @@ edge = [
 manugent = "manugent.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/15290391025/manugent"
-Documentation = "https://github.com/15290391025/manugent#readme"
-Repository = "https://github.com/15290391025/manugent"
-Issues = "https://github.com/15290391025/manugent/issues"
+Homepage = "https://github.com/15290391025/mes-agent"
+Documentation = "https://github.com/15290391025/mes-agent#readme"
+Repository = "https://github.com/15290391025/mes-agent"
+Issues = "https://github.com/15290391025/mes-agent/issues"
 
 # ============================================
 # Tool Configuration

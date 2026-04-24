@@ -87,7 +87,7 @@ ManuGent 不是替代你现有的MES，而是在MES上面加一层AI Agent中间
 
 ### 链接
 
-GitHub: https://github.com/15290391025/manugent
+GitHub: https://github.com/15290391025/mes-agent
 
 欢迎star、fork、提issue，特别是如果你在工厂干过，告诉我你的MES有多难用 😂
 
@@ -113,7 +113,7 @@ GitHub: https://github.com/15290391025/manugent
 
 虽然是早期项目，但方向我觉得对。
 
-GitHub: https://github.com/15290391025/manugent
+GitHub: https://github.com/15290391025/mes-agent
 
 ---
 
@@ -132,7 +132,7 @@ Agent auto-analyzes: equipment logs + material changes + process data → root c
 ✅ Edge deployment (Ollama for offline factories)
 ✅ MIT license
 
-https://github.com/15290391025/manugent
+https://github.com/15290391025/mes-agent
 
 #Manufacturing #AIagent #MES #Industry40 #OpenSource
 ```
@@ -165,5 +165,5 @@ Key features:
 
 Early stage, looking for feedback from people who've worked on factory floors.
 
-GitHub: https://github.com/15290391025/manugent
+GitHub: https://github.com/15290391025/mes-agent
 ```

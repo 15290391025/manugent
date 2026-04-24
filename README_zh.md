@@ -140,8 +140,8 @@ Agent层:  查询Agent / 告警Agent / 排产Agent / 根因分析Agent
 
 ```bash
 # 克隆
-git clone https://github.com/yourname/manugent.git
-cd manugent
+git clone https://github.com/15290391025/mes-agent.git
+cd mes-agent
 
 # 配置
 cp configs/.env.example configs/.env

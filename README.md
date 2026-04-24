@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-green.svg)](https://www.python.org/downloads/)
-[![Status: Reference Architecture](https://img.shields.io/badge/status-reference_architecture-orange.svg)](https://github.com/15290391025/manugent)
+[![Status: Reference Architecture](https://img.shields.io/badge/status-reference_architecture-orange.svg)](https://github.com/15290391025/mes-agent)
 
 ## 1. 项目定位
 
@@ -74,8 +74,8 @@ MES / ERP / QMS / 设备系统
 项目内置 `DemoMESConnector`，无需真实 MES 即可运行。
 
 ```bash
-git clone https://github.com/15290391025/manugent.git
-cd manugent
+git clone https://github.com/15290391025/mes-agent.git
+cd mes-agent
 
 cp configs/.env.example configs/.env
 pip install -e .
