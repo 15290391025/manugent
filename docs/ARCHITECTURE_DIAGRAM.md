@@ -10,7 +10,7 @@ flowchart TB
 
     session["Session Manager<br/>会话隔离 + memory scope"]
     agent["MES Agent Core<br/>LLM + 受控工具调用"]
-    graph["LangGraph RCA Workflow<br/>生产 → 质量 → 设备 → 证据 → 报告"]
+    rca_workflow["LangGraph RCA Workflow<br/>生产 → 质量 → 设备 → 证据 → 报告"]
 
     tools["Manufacturing Tool Protocol<br/>typed MES tools + safety levels"]
     memory["Memory Store<br/>session / incident / factory fact / preference / audit"]
@@ -27,13 +27,13 @@ flowchart TB
 
     user --> demo --> api
     api --> session --> agent
-    agent --> graph
+    agent --> rca_workflow
     agent --> tools
-    graph --> tools
-    graph --> evidence
+    rca_workflow --> tools
+    rca_workflow --> evidence
     session <--> memory
     agent --> memory
-    graph --> memory
+    rca_workflow --> memory
     tools --> demo_connector
     tools --> rest_connector
     rest_connector --> mes
@@ -50,7 +50,7 @@ flowchart TB
     classDef boundary fill:#fef2f2,stroke:#dc2626,color:#450a0a
 
     class user,demo,api entry
-    class session,agent,graph,tools agentLayer
+    class session,agent,rca_workflow,tools agentLayer
     class memory,evidence dataLayer
     class demo_connector,rest_connector,mes,qms,erp,equipment systemLayer
     class approval boundary
