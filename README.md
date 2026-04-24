@@ -1,321 +1,196 @@
-# ManuGent - MES Agent Reference Architecture
+# ManuGent - MES Agent 参考架构
 
-> 一个面向制造业 MES 场景的 Agent 中间层参考实现，展示如何把生产执行数据、质量追溯、设备状态和工单流转变成 Agent 可安全调用的工具。
+> 面向制造业 MES 场景的 Agent 中间层示范项目。它展示如何把生产执行数据、质量追溯、设备状态、物料批次和工单流转，转化为 Agent 可安全调用、可解释、可审计的智能能力。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-green.svg)](https://www.python.org/downloads/)
-[![Status: Planning](https://img.shields.io/badge/status-planning-orange.svg)](https://github.com/15290391025/manugent)
+[![Status: Reference Architecture](https://img.shields.io/badge/status-reference_architecture-orange.svg)](https://github.com/15290391025/manugent)
 
-[English](README.md) | [中文](README_zh.md)
+## 1. 项目定位
 
----
+ManuGent 不是要替代 MES，而是一个 **MES + Agent 能力背书项目**。
 
-## What is ManuGent?
+它回答的问题是：
 
-ManuGent is a **MES + Agent portfolio project**. It is not trying to replace a MES. It demonstrates how an AI Agent layer can sit above existing MES/ERP/QMS systems and provide:
+> 如果一个工厂已经有 MES，如何在不破坏现有系统的前提下，让工程师、班长、质量和设备人员用自然语言查询、分析、追溯和复盘生产现场？
 
-- Natural-language MES queries
-- Production KPI and WIP analysis
-- Product traceability
-- Quality and equipment root-cause analysis
-- Human-approved manufacturing actions
-- Auditable tool calls for industrial governance
+传统方式：
 
-**Before ManuGent:**
-> 工程师: 打开MES → 筛选产线 → 选日期 → 导出报表 → Excel分析 → 写报告 → 汇报
-
-**With ManuGent:**
-> 工程师: "3号线最近一周良率下降的原因是什么？"
-> ManuGent: 分析数据 → 关联事件 → 给出根因 → 建议措施
-
-The project ships with a built-in `DemoMESConnector`, so the MES Agent workflow can be demonstrated without access to a private factory system.
-
----
-
-## What This Project Demonstrates
-
-ManuGent is designed to show practical understanding of both MES and Agent systems:
-
-| Capability | What it demonstrates |
-|------------|----------------------|
-| MES domain model | Lines, work orders, WIP, equipment, material lots, serial numbers, quality records, OEE, yield, traceability |
-| Agent tool protocol | MES functions are exposed as typed tools instead of letting the LLM directly query arbitrary systems |
-| Manufacturing reasoning | Deterministic root-cause workflow builds evidence from production, quality, material, equipment, and memory |
-| Industrial safety | Read-only tools auto-run, advisory tools produce recommendations, write-like actions require approval |
-| Memory architecture | ChatGPT-inspired memory layers adapted to MES: session, incidents, factory facts, preferences, audit |
-| Session isolation | Each API `session_id` gets isolated Agent history and memory scope |
-| Agent safety | Optional API token, tool safety levels, approval queue skeleton, audit memory |
-| Connector abstraction | Demo and REST connectors share one tool interface, making real MES integration incremental |
-
-## Why ManuGent?
-
-| Problem | ManuGent Solution |
-|---------|-------------------|
-| MES数据需要手动查询导出 | 自然语言直接问，秒级响应 |
-| 异常靠人工经验判断 | AI Agent实时监控+根因分析 |
-| 多系统数据孤岛 | 统一Agent层打通MES/ERP/QMS |
-| 排产靠Excel拍脑袋 | 智能排产建议，约束满足优化 |
-| 培训新员工周期长 | AI助手降低MES使用门槛 |
-
----
-
-## Architecture
-
-```
-                    ┌─────────────────────────────────────┐
-                    │         User Interfaces             │
-                    │   Chat │ Dashboard │ Mobile │ API    │
-                    └──────────────┬──────────────────────┘
-                                   │
-                    ┌──────────────▼──────────────────────┐
-                    │       Agent Orchestration           │
-                    │  (LangGraph / CrewAI / AutoGen)     │
-                    │                                     │
-                    │  ┌───────┐ ┌───────┐ ┌───────────┐ │
-                    │  │Query  │ │Alert  │ │Schedule   │ │
-                    │  │Agent  │ │Agent  │ │Agent      │ │
-                    │  └───┬───┘ └───┬───┘ └─────┬─────┘ │
-                    │      └─────────┼───────────┘       │
-                    └──────────────┬──────────────────────┘
-                                   │
-                    ┌──────────────▼──────────────────────┐
-                    │      MCP Manufacturing Protocol     │
-                    │  (Standardized Agent ↔ MES Bridge)  │
-                    └──────────────┬──────────────────────┘
-                                   │
-          ┌────────────────────────┼────────────────────────┐
-          │                        │                        │
-    ┌─────▼─────┐          ┌──────▼──────┐          ┌──────▼──────┐
-    │ MES       │          │ ERP         │          │ QMS/WMS/SCADA│
-    │ Connector │          │ Connector   │          │ Connector    │
-    │           │          │             │          │              │
-    │ Siemens   │          │ SAP         │          │ OPC UA       │
-    │ 鼎捷      │          │ Oracle      │          │ MQTT         │
-    │ 摩尔元数   │          │ 用友/金蝶    │          │ Modbus       │
-    │ 自研MES   │          │             │          │ REST/GraphQL │
-    └───────────┘          └─────────────┘          └──────────────┘
+```text
+打开 MES → 筛选产线 → 导出报表 → Excel 分析 → 找设备/质量记录 → 写报告
 ```
 
-### Key Design Principles
+ManuGent 方式：
 
-1. **Non-invasive**: Read-heavy first, write operations require explicit approval
-2. **ISA-95 Compliant**: Data models follow ISA-95/Purdue model standards
-3. **Edge-First**: Local LLM inference (Ollama/vLLM) with cloud fallback
-4. **Multi-Agent**: Specialized agents for different concerns (query, alert, schedule)
-5. **Memory-Aware**: Historical incidents, factory facts, user preferences, and audit events shape future answers
-6. **Governance-First**: Audit trail, constraint validation, human-in-the-loop
+```text
+问：SMT-03 最近 24 小时良率为什么下降？
+答：查询良率趋势、品质缺陷、物料批次、设备告警、历史记忆 → 生成证据链和建议动作
+```
 
----
+## 2. 核心能力
 
-## Tech Stack
+| 能力 | 项目中如何体现 |
+|------|----------------|
+| MES 领域建模 | 产线、工单、WIP、设备、物料批次、质量记录、SN 追溯、OEE、良率 |
+| Agent 工具协议 | MES 能力被封装成 typed tools，LLM 不直接访问数据库 |
+| 根因分析工作流 | 确定性 RCA workflow 生成 production / quality / material / equipment / memory 证据链 |
+| 记忆架构 | 参考 ChatGPT 记忆逻辑，映射为 session、incident、factory fact、preference、audit |
+| 会话隔离 | API `session_id` 对应独立 Agent history 和 memory scope |
+| 安全边界 | read-only 默认执行，approval/restricted 工具进入审批队列 |
+| 审计能力 | 工具调用、参数、安全级别、结果摘要写入 audit memory |
+| 可展示 Demo | Web 页面、API endpoint、CLI demo scripts 均可运行 |
 
-| Component | Technology | Why |
-|-----------|-----------|-----|
-| Agent Framework | LangGraph | Stateful multi-step reasoning, production-grade |
-| LLM Backend | OpenAI / Claude / Qwen / Local (Ollama) | Flexibility, can run offline |
-| Data Protocol | MCP (Model Context Protocol) | Standardized tool calling |
-| OT Connectors | OPC UA / MQTT | Industry standard IoT protocols |
-| Backend API | FastAPI (Python) | Async, fast, great for data pipelines |
-| Database | PostgreSQL + TimescaleDB | Relational + time-series for sensor data |
-| Cache | Redis | Real-time state, pub/sub |
-| Memory | Layered memory store | Session context, incidents, factory knowledge, preferences, audit |
-| Edge Runtime | Ollama / vLLM | On-premise LLM inference |
-| Frontend | React + shadcn/ui | Chat interface + dashboards |
+## 3. 架构概览
 
----
+```text
+用户 / Web Demo / API
+        │
+        ▼
+Session Manager ── Memory Store(SQLite)
+        │                 │
+        ▼                 ▼
+MES Agent ─────── Audit / Incident / Preference Memory
+        │
+        ▼
+Manufacturing Tool Protocol
+        │
+        ├── DemoMESConnector
+        └── RestConnector
+        │
+        ▼
+MES / ERP / QMS / 设备系统
+```
 
-## Quick Start
+核心原则：
 
-The fastest demo path uses the built-in simulated SMT factory data.
+- **不侵入 MES**：先读数据，写操作必须审批。
+- **工具受控**：Agent 只能调用注册过的 MES tools。
+- **证据优先**：回答必须能追溯到生产、质量、物料、设备或记忆证据。
+- **记忆沉淀**：历史异常、工厂知识、用户偏好和审计记录可以影响后续分析。
+- **企业安全兼容**：身份认证/RBAC 交给企业 SSO/API Gateway/MES 权限体系。
+
+## 4. 快速体验
+
+项目内置 `DemoMESConnector`，无需真实 MES 即可运行。
 
 ```bash
-# Clone
 git clone https://github.com/15290391025/manugent.git
 cd manugent
 
-# Setup
 cp configs/.env.example configs/.env
-# Default config uses MES_TYPE=demo and Ollama for local inference.
-
-# Run with Docker
-docker compose up -d
-
-# Or run locally
 pip install -e .
 manugent serve --config configs/.env
 ```
 
-Run demo scenarios without any LLM or real MES:
+打开：
+
+```text
+http://localhost:8000/
+```
+
+Web Demo 会调用：
+
+```text
+POST /workflows/root-cause/yield-drop
+```
+
+## 5. 不依赖 LLM 的演示脚本
+
+这些脚本可以直接展示 MES Agent 的核心能力：
 
 ```bash
-PYTHONPATH=src python3 examples/demo_root_cause.py
+PYTHONPATH=src python3 examples/demo_workflow_root_cause.py
 PYTHONPATH=src python3 examples/demo_traceability.py
 PYTHONPATH=src python3 examples/demo_daily_report.py
 PYTHONPATH=src python3 examples/demo_memory.py
-PYTHONPATH=src python3 examples/demo_workflow_root_cause.py
 PYTHONPATH=src python3 examples/demo_sqlite_memory.py
 ```
 
-### Connect to your MES
+## 6. API 示例
 
-```python
-from langchain_openai import ChatOpenAI
+### 根因分析 Workflow
 
-from manugent import MESAgent
-from manugent.connector import MESConnectionConfig, create_connector
-
-connector = create_connector(
-    MESConnectionConfig(
-        mes_type="rest",
-        base_url="https://your-mes.example.com/api",
-        auth_type="bearer",
-        auth_token="your-token",
-    )
-)
-
-llm = ChatOpenAI(model="gpt-4o", api_key="your-key")
-agent = MESAgent(llm=llm, connector=connector)
-
-# Natural language query
-response = await agent.chat("3号线今天OEE是多少？")
-print(response)
-
-# Structured query
-result = await agent.query(
-    "query_production_data",
-    {"line_id": "SMT-03", "metric": "oee", "time_range": "today"},
-)
+```bash
+curl -X POST http://localhost:8000/workflows/root-cause/yield-drop \\
+  -H "Content-Type: application/json" \\
+  -d '{"line_id":"SMT-03","time_range":"24h","session_id":"demo"}'
 ```
 
-## Demo Scenarios
+返回结构包含：
 
-See [DEMO_SCENARIOS.md](docs/DEMO_SCENARIOS.md) for detailed walkthroughs.
+- `finding`
+- `confidence`
+- `evidence`
+- `recommendations`
 
-| Scenario | User question | Demonstrated capability |
-|----------|---------------|-------------------------|
-| Yield root cause | "SMT-03 最近 24 小时良率为什么下降？" | Links yield trend, defects, material lot, and equipment alarms |
-| Traceability | "SN202604240031 这台产品经历了哪些工序？" | Shows route, equipment, operators, material lots, and quality result |
-| Morning report | "生成 SMT-03 今天早班生产日报" | Composes KPI, WIP, quality, RCA, and actions into an operations report |
-| Memory context | "SMT-03 yield" | Retrieves preferences, factory facts, incidents, and audit memories |
-| Evidence chain | "SMT-03 yield drop RCA" | Runs deterministic workflow and outputs typed evidence + recommendations |
+### 工具调用
 
-Core design docs:
+```bash
+curl -X POST http://localhost:8000/query \\
+  -H "Content-Type: application/json" \\
+  -d '{"tool":"query_wip","params":{"line_id":"SMT-03"},"session_id":"demo"}'
+```
 
-- [MES_DOMAIN_MODEL.md](docs/MES_DOMAIN_MODEL.md)
-- [ROOT_CAUSE_WORKFLOW.md](docs/ROOT_CAUSE_WORKFLOW.md)
-- [SESSION_AND_PERSISTENCE.md](docs/SESSION_AND_PERSISTENCE.md)
-- [SECURITY_MODEL.md](docs/SECURITY_MODEL.md)
-- [DEMO_SCENARIOS.md](docs/DEMO_SCENARIOS.md)
+### 审批队列
 
-## Memory Model
+```bash
+curl http://localhost:8000/approvals
+```
 
-ManuGent adapts ChatGPT-style memory concepts to MES operations:
+## 7. 关键文档
 
-| Layer | ChatGPT analogy | MES Agent use |
-|-------|-----------------|---------------|
-| Session memory | Current conversation context | Active shift conversation and follow-up questions |
-| Episodic memory | Past chat history | Historical incidents, root-cause hypotheses, corrective actions |
-| Semantic memory | Stable remembered facts | Factory layout, line rules, SOPs, product routes, equipment metadata |
-| Preference memory | Saved memories / instructions | User, role, and report-format preferences |
-| Audit memory | Governance trace | Tool calls, parameters, safety level, result summaries, approvals |
+- [项目故事：为什么需要 MES Agent](docs/PROJECT_STORY_ZH.md)
+- [MES 领域模型](docs/MES_DOMAIN_MODEL.md)
+- [根因分析工作流](docs/ROOT_CAUSE_WORKFLOW.md)
+- [记忆、会话和持久化](docs/SESSION_AND_PERSISTENCE.md)
+- [Agent 安全边界](docs/SECURITY_MODEL.md)
+- [Demo 场景说明](docs/DEMO_SCENARIOS.md)
+- [命名与 GitHub 搜索建议](docs/NAMING.md)
 
-The current implementation includes an in-memory backend and prompt context builder.
-It also includes a SQLite backend for local persistence and API audit memory.
-The same interface can be backed by PostgreSQL or vector search later.
+## 8. 当前完成度
 
----
+已实现：
 
-## Use Cases
-
-### Tier 1: Natural Language MES Query (MVP)
-- "3号线最近一周的良率趋势"
-- "今天有哪些设备需要保养？"
-- "昨天夜班的产量为什么比白班低？"
-- 自动生成每日生产晨会报告
-
-### Tier 2: Intelligent Monitoring & Alerting
-- 实时异常检测（传感器数据 + 生产指标）
-- 良率波动根因分析（关联设备、物料、人员、环境）
-- 预测性维护建议（基于设备运行数据趋势）
-
-### Tier 3: Autonomous Operations
-- 多约束条件下的智能排产
-- 动态人员排班（技能匹配 + 负荷均衡）
-- 物料需求预测与采购建议
-
-### Tier 4: Cognitive Manufacturing (Roadmap)
-- 跨工厂知识迁移
-- 自适应工艺参数优化
-- 合规自动化（客户审核、体系认证）
-
----
-
-## Who Should Use This?
-
-- **大型电子制造企业** (立讯精密、歌尔股份、比亚迪电子...)
-  - 已有MES系统，需要AI增强
-  - 多工厂、多产线协同需求
-  - 客户（Apple/汽车）品质追溯要求高
-
-- **MES系统集成商/ISV**
-  - 给客户提供AI增值模块
-  - 不想从零开发Agent能力
-
-- **智能制造研究机构**
-  - 探索LLM在工业场景的落地
-
----
-
-## Roadmap
-
-See [ROADMAP.md](docs/ROADMAP.md) for detailed timeline.
-
-| Phase | Timeline | Deliverable |
-|-------|----------|-------------|
-| Phase 1: Foundation | Month 1-2 | Core protocol, one MES connector, basic chat agent |
-| Phase 2: Intelligence | Month 3-4 | Multi-agent system, alerting, root cause analysis |
-| Phase 3: Operations | Month 5-6 | Scheduling agent, edge deployment, production-ready |
-| Phase 4: Ecosystem | Month 7+ | Plugin marketplace, multi-MES federation, enterprise features |
-
----
-
-## Current Status
-
-ManuGent is an early reference implementation. The current vertical slice includes:
-
-- Built-in demo MES connector with SMT factory data
-- Generic REST MES connector
-- MES domain models and deterministic root-cause workflow
+- Demo MES 数据源
+- 通用 REST connector
 - Manufacturing tool registry
-- Layered memory module with in-memory backend and audit capture
-- SQLite memory persistence and API session isolation
-- Security model, optional API token guard, and approval queue skeleton
-- FastAPI server
-- Typer CLI
-- Docker Compose
-- Demo scripts for root cause, traceability, and daily report workflows
+- Domain models
+- Root Cause Workflow
+- Evidence Chain
+- Memory model
+- SQLite memory persistence
+- Session isolation
+- Audit memory
+- Optional API token
+- Approval queue skeleton
+- Workflow API endpoint
+- Minimal Web Demo
 
-Next milestones:
+仍可继续增强：
 
-- Session isolation and API authentication
-- Enterprise identity/RBAC integration points
-- Persistent approval queue and approved-action execution
-- Persistent memory backends: PostgreSQL/vector retrieval
-- Configurable REST field mappings
-- LangGraph workflow for root-cause analysis
-- Minimal dashboard for demo storytelling
+- REST connector YAML mapping
+- Approval 通过后的动作执行
+- Approval 持久化
+- LangGraph 编排版本
+- 更完整的 Web UI
+- CI 运行所有 demo scripts
 
----
+## 9. 项目命名
 
-## License
+当前名字 `ManuGent` = Manufacturing + Agent，含义清楚，但 GitHub 搜索流量不一定最好。
 
-MIT License — use it however you want.
+如果目标是被搜索到，仓库名可以考虑更直白的关键词：
 
----
+- `mes-agent`
+- `manufacturing-agent`
+- `mes-ai-agent`
+- `factory-agent`
+- `industrial-ai-agent`
 
-## Acknowledgments
+我的建议：**仓库名用 `mes-agent` 或 `manufacturing-agent`，项目品牌名仍叫 ManuGent。**
 
-- [Digital Twin Consortium](https://www.digitaltwinconsortium.org/) — Industrial AI Agent Manifesto
-- [MCP Protocol](https://modelcontextprotocol.io/) — Standardized agent-tool communication
-- AWS [industrial-data-store-simulation-chatbot](https://github.com/aws-samples/industrial-data-store-simulation-chatbot) — Reference architecture for MES chatbot
-- All open-source MES projects that inspire this work
+这样兼顾搜索流量和品牌识别。
+
+## 10. License
+
+MIT License.

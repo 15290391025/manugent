@@ -15,17 +15,19 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from manugent.agent.core import AgentResponse
 from manugent.agent.session import AgentSessionManager
+from manugent.api.demo_page import DEMO_HTML
 from manugent.config.settings import Settings
 from manugent.connector.base import MESConnectionConfig
 from manugent.connector.factory import create_connector
 from manugent.memory import SQLiteMemoryStore
 from manugent.protocol.tools import MANUFACTURING_TOOLS, list_tools
 from manugent.security import ApprovalDecision, ApprovalQueue, verify_bearer_token
+from manugent.workflows import RootCauseWorkflow
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +96,13 @@ class ApprovalDecisionRequest(BaseModel):
     approved: bool
     decided_by: str = Field(default="human", description="Approver identifier")
     reason: str = Field(default="", description="Decision rationale")
+
+
+class YieldDropWorkflowRequest(BaseModel):
+    """Yield-drop root-cause workflow request."""
+    line_id: str = Field(default="SMT-03", description="Production line ID")
+    time_range: str = Field(default="24h", description="MES query time range")
+    session_id: str | None = Field(default=None, description="Session ID for memory scope")
 
 
 # ============================================
@@ -187,6 +196,12 @@ async def optional_api_token_guard(request: Request, call_next):
 # Endpoints
 # ============================================
 
+@app.get("/", response_class=HTMLResponse)
+async def web_demo():
+    """Minimal web demo for RCA evidence chain."""
+    return HTMLResponse(DEMO_HTML)
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
@@ -255,6 +270,26 @@ async def query(request: QueryRequest):
         error=result.error,
         metadata=result.metadata,
     )
+
+
+@app.post("/workflows/root-cause/yield-drop")
+async def yield_drop_root_cause(request: YieldDropWorkflowRequest):
+    """Run deterministic yield-drop RCA workflow and return evidence chain."""
+    if not _session_manager:
+        raise HTTPException(status_code=503, detail="Agent not initialized")
+
+    agent = _session_manager.get(request.session_id)
+    await agent.config.connector.connect()
+    workflow = RootCauseWorkflow(
+        agent.config.connector,
+        memory_store=agent.config.memory_store,
+        memory_scope=agent.config.memory_scope,
+    )
+    report = await workflow.analyze_yield_drop(
+        line_id=request.line_id,
+        time_range=request.time_range,
+    )
+    return report.to_dict()
 
 
 @app.get("/tools", response_model=list[ToolInfo])
