@@ -111,7 +111,7 @@ DEMO_HTML = """
     <section class="hero">
       <h1>ManuGent</h1>
       <div class="tagline">
-        MES Agent 参考架构：用受控工具、证据链、记忆和审批边界，
+        MES Agent 参考架构：用受控工具、证据链、记忆和企业审批边界，
         把传统 MES 数据变成可解释、可审计的制造业智能助手。
       </div>
       <div>
@@ -119,7 +119,7 @@ DEMO_HTML = """
         <span class="pill">Root Cause Workflow</span>
         <span class="pill">Evidence Chain</span>
         <span class="pill">Memory / Audit</span>
-        <span class="pill">Approval Gate</span>
+        <span class="pill">Approval Boundary</span>
       </div>
     </section>
     <section class="grid">
@@ -173,7 +173,7 @@ DEMO_HTML = """
       document.getElementById("actions").innerHTML = data.recommendations.map(item => `
         <div class="evidence-item">
           <div class="${item.requires_approval ? "approval" : "type"}">
-            ${item.requires_approval ? "需要审批" : "建议"} · ${item.owner}
+            ${item.requires_approval ? "审批边界" : "建议"} · ${item.owner}
           </div>
           <div>${item.action}</div>
         </div>

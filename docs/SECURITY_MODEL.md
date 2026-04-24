@@ -20,8 +20,8 @@ ManuGent's responsibility is the **Agent safety boundary** around MES tools.
 | Identity | SSO, IAM, user lifecycle | Optional local API token for direct demos |
 | Network | VPN, gateway, firewall | No direct internet exposure assumption |
 | MES authorization | MES roles and permissions | Never bypass MES connector permissions |
-| Agent tools | N/A | Tool safety levels, approvals, audit memory |
-| Audit | SIEM, enterprise retention | Structured tool-call and approval events |
+| Agent tools | N/A | Tool safety levels, approval boundary, audit memory |
+| Audit | SIEM, enterprise retention | Structured tool-call and boundary events |
 
 ## Principles
 
@@ -29,11 +29,11 @@ ManuGent's responsibility is the **Agent safety boundary** around MES tools.
    The LLM can only use typed MES tools.
 
 2. **Read-heavy by default.**
-   Query tools are `read_only`; action tools require approval.
+   Query tools are `read_only`; action tools cross an approval boundary.
 
 3. **No silent writes.**
-   `approval` and `restricted` tools produce approval requests instead of
-   executing immediately.
+   `approval` and `restricted` tools must not execute immediately inside an
+   Agent response.
 
 4. **Every tool call is auditable.**
    Tool name, params, safety level, result summary, and memory scope are stored.
@@ -60,7 +60,7 @@ Authorization: Bearer change-me
 
 If `MANUGENT_API_TOKEN` is empty, the guard is disabled.
 
-## Approval Queue
+## External Approval Boundary
 
 Implemented in:
 
@@ -68,9 +68,14 @@ Implemented in:
 src/manugent/security/approvals.py
 ```
 
-The approval queue is intentionally in-memory in this phase. It establishes the
-contract for future integrations with MES screens, ServiceNow, Jira, Teams,
-Slack, or customer-specific approval systems.
+The local approval queue is intentionally small and in-memory. Its purpose is
+to demonstrate the contract: when an Agent recommends a production-affecting
+action, the action is separated from the read-only analysis path.
+
+ManuGent does not try to implement a universal approval engine. In real
+factories this is usually already owned by MES, BPM, Lark/Feishu, ServiceNow,
+or a customer-specific workflow platform. Those systems define approvers,
+delegation, escalation, timeout, evidence requirements, and execution rights.
 
 Endpoints:
 
@@ -79,7 +84,7 @@ GET  /approvals
 POST /approvals/{request_id}/decision
 ```
 
-Approval states:
+Boundary states:
 
 - `pending`
 - `approved`
@@ -89,8 +94,8 @@ Approval states:
 ## Current Limitations
 
 - No user/RBAC system is implemented in ManuGent.
-- Approval decisions do not yet execute the original action after approval.
-- Approval queue is in-memory and not persisted.
+- Approval routing and final action execution are external integration points.
+- The local queue is demo-only and not meant to replace enterprise workflow.
 - CORS is still permissive for demo simplicity.
 
 ## Recommended Enterprise Deployment
@@ -104,4 +109,5 @@ User
 ```
 
 ManuGent should receive identity/role context from the enterprise gateway, then
-map that context into memory scope, tool permissions, and approval routing.
+map that context into memory scope, tool permissions, and external approval
+routing.

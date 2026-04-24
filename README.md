@@ -33,10 +33,11 @@ ManuGent 方式：
 |------|----------------|
 | MES 领域建模 | 产线、工单、WIP、设备、物料批次、质量记录、SN 追溯、OEE、良率 |
 | Agent 工具协议 | MES 能力被封装成 typed tools，LLM 不直接访问数据库 |
-| 根因分析工作流 | 确定性 RCA workflow 生成 production / quality / material / equipment / memory 证据链 |
+| 根因分析工作流 | RCA workflow 生成 production / quality / material / equipment / memory 证据链 |
+| LangGraph 编排 | 把 RCA 拆成 query_production → query_quality → query_equipment → build_evidence → build_report |
 | 记忆架构 | 参考 ChatGPT 记忆逻辑，映射为 session、incident、factory fact、preference、audit |
 | 会话隔离 | API `session_id` 对应独立 Agent history 和 memory scope |
-| 安全边界 | read-only 默认执行，approval/restricted 工具进入审批队列 |
+| 安全边界 | read-only 默认执行，approval/restricted 工具进入企业审批边界 |
 | 审计能力 | 工具调用、参数、安全级别、结果摘要写入 audit memory |
 | 可展示 Demo | Web 页面、API endpoint、CLI demo scripts 均可运行 |
 
@@ -63,7 +64,7 @@ MES / ERP / QMS / 设备系统
 
 核心原则：
 
-- **不侵入 MES**：先读数据，写操作必须审批。
+- **不侵入 MES**：先读数据，写操作交给企业审批/执行系统。
 - **工具受控**：Agent 只能调用注册过的 MES tools。
 - **证据优先**：回答必须能追溯到生产、质量、物料、设备或记忆证据。
 - **记忆沉淀**：历史异常、工厂知识、用户偏好和审计记录可以影响后续分析。
@@ -100,6 +101,7 @@ POST /workflows/root-cause/yield-drop
 
 ```bash
 PYTHONPATH=src python3 examples/demo_workflow_root_cause.py
+PYTHONPATH=src python3 examples/demo_langgraph_root_cause.py
 PYTHONPATH=src python3 examples/demo_traceability.py
 PYTHONPATH=src python3 examples/demo_daily_report.py
 PYTHONPATH=src python3 examples/demo_memory.py
@@ -131,12 +133,6 @@ curl -X POST http://localhost:8000/query \\
   -d '{"tool":"query_wip","params":{"line_id":"SMT-03"},"session_id":"demo"}'
 ```
 
-### 审批队列
-
-```bash
-curl http://localhost:8000/approvals
-```
-
 ## 7. 关键文档
 
 - [项目故事：为什么需要 MES Agent](docs/PROJECT_STORY_ZH.md)
@@ -155,22 +151,22 @@ curl http://localhost:8000/approvals
 - Manufacturing tool registry
 - Domain models
 - Root Cause Workflow
+- LangGraph RCA orchestration
 - Evidence Chain
 - Memory model
 - SQLite memory persistence
 - Session isolation
 - Audit memory
 - Optional API token
-- Approval queue skeleton
+- External approval boundary skeleton
 - Workflow API endpoint
 - Minimal Web Demo
 
 仍可继续增强：
 
 - REST connector YAML mapping
-- Approval 通过后的动作执行
-- Approval 持久化
-- LangGraph 编排版本
+- LangGraph 条件路由和多 Agent supervisor
+- 企业审批系统适配（MES/BPM/Lark/自研系统）
 - 更完整的 Web UI
 - CI 运行所有 demo scripts
 

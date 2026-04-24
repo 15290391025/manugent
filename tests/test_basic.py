@@ -233,6 +233,35 @@ async def test_root_cause_workflow_evidence_chain():
     assert any(item.requires_approval for item in report.recommendations)
 
 
+@pytest.mark.asyncio
+async def test_langgraph_root_cause_workflow_steps():
+    """Test LangGraph RCA workflow keeps orchestration steps explicit."""
+    pytest.importorskip("langgraph")
+
+    from manugent.connector.demo import DemoMESConnector
+    from manugent.models import EvidenceType
+    from manugent.workflows import LangGraphRootCauseWorkflow
+
+    connector = DemoMESConnector()
+    await connector.connect()
+    workflow = LangGraphRootCauseWorkflow(connector)
+
+    report = await workflow.analyze_yield_drop("SMT-03")
+    evidence_types = {item.evidence_type for item in report.evidence}
+
+    assert workflow.last_steps == [
+        "query_production",
+        "query_quality",
+        "query_equipment",
+        "build_evidence",
+        "build_report",
+    ]
+    assert report.incident_type == "yield_drop"
+    assert EvidenceType.PRODUCTION in evidence_types
+    assert EvidenceType.QUALITY in evidence_types
+    assert EvidenceType.EQUIPMENT in evidence_types
+
+
 def test_sqlite_memory_store_persists_records(tmp_path):
     """Test SQLite memory persists records across store instances."""
     from manugent.memory import MemoryLayer, SQLiteMemoryStore

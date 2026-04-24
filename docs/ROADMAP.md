@@ -35,7 +35,8 @@
 **Goal: 实时监控 + 异常检测 + 根因分析**
 
 ### Deliverables
-- [ ] 多Agent编排 (LangGraph)
+- [x] RCA LangGraph 编排
+- [ ] 多Agent编排 (LangGraph Supervisor)
 - [ ] Alert Agent (实时监控告警)
 - [ ] RootCause Agent (根因分析)
 - [ ] 西门子 Opcenter 连接器

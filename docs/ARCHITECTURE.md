@@ -169,6 +169,27 @@ connectors:
 
 ### Agent Architecture (LangGraph)
 
+The implemented LangGraph path is currently the RCA graph:
+
+```text
+query_production
+→ query_quality
+→ query_equipment
+→ build_evidence
+→ build_report
+```
+
+Code:
+
+```text
+src/manugent/workflows/langgraph_root_cause.py
+```
+
+The broader supervisor graph below is the intended extension point for routing
+general user requests into query, analysis, RCA, or external approval systems.
+Approval is modeled as an enterprise integration boundary, not as a built-in
+universal approval engine.
+
 ```python
 from langgraph.graph import StateGraph, END
 
@@ -177,7 +198,7 @@ class FactoryAgentState(TypedDict):
     mes_data: dict
     analysis: dict
     plan: list[str]
-    human_approval_needed: bool
+    approval_boundary: bool
 
 # Agent graph
 graph = StateGraph(FactoryAgentState)
@@ -188,7 +209,7 @@ graph.add_node("query_mes", query_mes_data)           # Fetch relevant data
 graph.add_node("analyze", analyze_with_llm)           # LLM analysis
 graph.add_node("root_cause", root_cause_analysis)     # Deep dive if needed
 graph.add_node("format_response", format_response)    # Format for user
-graph.add_node("human_review", human_review_node)     # Approval gate
+graph.add_node("approval_boundary", external_approval_boundary)
 
 # Edges
 graph.add_edge("understand", "query_mes")
@@ -196,11 +217,11 @@ graph.add_conditional_edges("query_mes", route_by_intent, {
     "simple_query": "format_response",
     "analysis": "analyze",
     "root_cause": "root_cause",
-    "action": "human_review",
+    "action": "approval_boundary",
 })
 graph.add_edge("analyze", "format_response")
 graph.add_edge("root_cause", "format_response")
-graph.add_edge("human_review", "format_response")
+graph.add_edge("approval_boundary", "format_response")
 graph.add_edge("format_response", END)
 
 # Entry
