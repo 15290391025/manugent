@@ -10,7 +10,7 @@ REST API server providing:
 from __future__ import annotations
 
 import logging
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -37,7 +37,10 @@ _settings: Settings | None = None
 class ChatRequest(BaseModel):
     """Chat request model."""
     message: str = Field(..., description="Natural language query")
-    session_id: str | None = Field(default=None, description="Session ID for conversation continuity")
+    session_id: str | None = Field(
+        default=None,
+        description="Session ID for conversation continuity",
+    )
     stream: bool = Field(default=False, description="Enable streaming response")
 
 
@@ -156,10 +159,8 @@ async def health_check():
     """Health check endpoint."""
     mes_connected = False
     if _agent:
-        try:
+        with suppress(Exception):
             mes_connected = await _agent.config.connector.health_check()
-        except Exception:
-            pass
 
     return HealthResponse(
         status="ok",

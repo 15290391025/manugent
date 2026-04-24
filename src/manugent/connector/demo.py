@@ -181,22 +181,35 @@ class DemoMESConnector(MESConnector):
         quality = self._get_quality_records({"line_id": line_id}).data
         equipment_history = self._data["equipment_history"].get("MOUNTER-03A", [])
         yield_summary = self._query_production_data(
-            {"line_id": line_id, "metric": "yield", "time_range": context.get("time_range", "24h")}
+            {
+                "line_id": line_id,
+                "metric": "yield",
+                "time_range": context.get("time_range", "24h"),
+            }
         ).data["summary"]
 
         report = {
             "issue_type": params.get("issue_type", "yield_drop"),
             "line_id": line_id,
-            "finding": "SMT-03 yield drop is most likely linked to solder paste lot SP-20260424-A and mounter nozzle alarms.",
+            "finding": (
+                "SMT-03 yield drop is most likely linked to solder paste lot "
+                "SP-20260424-A and mounter nozzle alarms."
+            ),
             "confidence": 0.78,
             "evidence": [
                 {
                     "type": "production_metric",
-                    "detail": f"Yield trend moved {yield_summary['trend']} from 98.1 to {yield_summary['current']}.",
+                    "detail": (
+                        f"Yield trend moved {yield_summary['trend']} "
+                        f"from 98.1 to {yield_summary['current']}."
+                    ),
                 },
                 {
                     "type": "quality",
-                    "detail": f"Top defect is {quality['summary']['top_defects'][0][0]} with {quality['summary']['top_defects'][0][1]} records.",
+                    "detail": (
+                        f"Top defect is {quality['summary']['top_defects'][0][0]} "
+                        f"with {quality['summary']['top_defects'][0][1]} records."
+                    ),
                 },
                 {
                     "type": "material",
@@ -204,11 +217,17 @@ class DemoMESConnector(MESConnector):
                 },
                 {
                     "type": "equipment",
-                    "detail": f"{len(equipment_history)} related mounter events found for MOUNTER-03A.",
+                    "detail": (
+                        f"{len(equipment_history)} related mounter events "
+                        "found for MOUNTER-03A."
+                    ),
                 },
             ],
             "recommended_actions": [
-                "Quarantine solder paste lot SP-20260424-A and compare SPI records with the previous lot.",
+                (
+                    "Quarantine solder paste lot SP-20260424-A and compare "
+                    "SPI records with the previous lot."
+                ),
                 "Inspect and clean MOUNTER-03A nozzle bank 2 before the next shift.",
                 "Run first-article inspection for the next 30 panels on SMT-03.",
             ],
@@ -225,8 +244,16 @@ class DemoMESConnector(MESConnector):
                 "horizon": params.get("horizon", "24h"),
                 "line_ids": line_ids,
                 "plan": [
-                    {"line_id": "SMT-01", "order_id": "MO-20260424-001", "slot": "08:00-16:00"},
-                    {"line_id": "SMT-03", "order_id": "MO-20260424-003", "slot": "16:00-23:00"},
+                    {
+                        "line_id": "SMT-01",
+                        "order_id": "MO-20260424-001",
+                        "slot": "08:00-16:00",
+                    },
+                    {
+                        "line_id": "SMT-03",
+                        "order_id": "MO-20260424-003",
+                        "slot": "16:00-23:00",
+                    },
                 ],
                 "constraints_checked": ["material_availability", "equipment_status", "due_date"],
                 "note": "Advisory only. MES write-back requires human approval.",
@@ -403,11 +430,36 @@ def _build_demo_data() -> dict[str, Any]:
                     "ic": "IC-7788-0422",
                 },
                 "route": [
-                    {"station": "printer", "equipment_id": "PRINTER-03", "operator": "OP102", "result": "pass"},
-                    {"station": "spi", "equipment_id": "SPI-03", "operator": "OP102", "result": "pass"},
-                    {"station": "mounter", "equipment_id": "MOUNTER-03A", "operator": "OP117", "result": "pass"},
-                    {"station": "reflow", "equipment_id": "REFLOW-03", "operator": "OP117", "result": "pass"},
-                    {"station": "aoi", "equipment_id": "AOI-03", "operator": "OP211", "result": "fail"},
+                    {
+                        "station": "printer",
+                        "equipment_id": "PRINTER-03",
+                        "operator": "OP102",
+                        "result": "pass",
+                    },
+                    {
+                        "station": "spi",
+                        "equipment_id": "SPI-03",
+                        "operator": "OP102",
+                        "result": "pass",
+                    },
+                    {
+                        "station": "mounter",
+                        "equipment_id": "MOUNTER-03A",
+                        "operator": "OP117",
+                        "result": "pass",
+                    },
+                    {
+                        "station": "reflow",
+                        "equipment_id": "REFLOW-03",
+                        "operator": "OP117",
+                        "result": "pass",
+                    },
+                    {
+                        "station": "aoi",
+                        "equipment_id": "AOI-03",
+                        "operator": "OP211",
+                        "result": "fail",
+                    },
                 ],
                 "quality_checks": [
                     {"station": "AOI", "defect_type": "solder_bridge", "severity": "major"},

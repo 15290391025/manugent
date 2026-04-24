@@ -10,8 +10,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
 from manugent.connector.base import MESConnector, QueryResult
 from manugent.protocol.tools import (

@@ -9,10 +9,10 @@ import asyncio
 from pathlib import Path
 
 import typer
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
 from rich import print as rprint
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
 
 app = typer.Typer(
     name="manugent",

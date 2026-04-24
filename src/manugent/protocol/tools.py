@@ -8,11 +8,11 @@ with manufacturing-specific extensions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 
-class ToolCategory(str, Enum):
+class ToolCategory(StrEnum):
     """Categories of manufacturing tools."""
     PRODUCTION = "production"
     EQUIPMENT = "equipment"
@@ -21,12 +21,12 @@ class ToolCategory(str, Enum):
     ACTION = "action"
 
 
-class SafetyLevel(str, Enum):
+class SafetyLevel(StrEnum):
     """Safety classification for tool operations."""
-    READ_ONLY = "read_only"           # Auto-approved
-    ADVISORY = "advisory"             # Returns suggestions, no execution
-    APPROVAL_REQUIRED = "approval"    # Requires human approval
-    RESTRICTED = "restricted"         # Admin only
+    READ_ONLY = "read_only"  # Auto-approved
+    ADVISORY = "advisory"  # Returns suggestions, no execution
+    APPROVAL_REQUIRED = "approval"  # Requires human approval
+    RESTRICTED = "restricted"  # Admin only
 
 
 @dataclass
@@ -88,26 +88,44 @@ def list_tools(
 
 # --- Production Query Tools ---
 
-register_tool(MCPTool(
-    name="query_production_data",
-    description="查询生产指标数据，包括OEE、良率、产量、节拍时间等",
-    category=ToolCategory.PRODUCTION,
-    safety_level=SafetyLevel.READ_ONLY,
-    parameters=[
-        ToolParameter("line_id", "string", "产线ID，如 'SMT-03'", required=True),
-        ToolParameter("metric", "enum", "查询指标", required=True,
-                      enum_values=["oee", "yield", "output", "cycle_time", "throughput"]),
-        ToolParameter("time_range", "string", "时间范围，如 'today', 'yesterday', '7d', '2024-01-01~2024-01-07'",
-                      default="today"),
-        ToolParameter("granularity", "enum", "数据粒度",
-                      enum_values=["raw", "hourly", "shift", "daily"], default="hourly"),
-    ],
-    returns="timeseries_data",
-    examples=[
-        "query_production_data(line_id='SMT-03', metric='oee', time_range='today')",
-        "query_production_data(line_id='ASM-01', metric='yield', time_range='7d', granularity='daily')",
-    ],
-))
+register_tool(
+    MCPTool(
+        name="query_production_data",
+        description="查询生产指标数据，包括OEE、良率、产量、节拍时间等",
+        category=ToolCategory.PRODUCTION,
+        safety_level=SafetyLevel.READ_ONLY,
+        parameters=[
+            ToolParameter("line_id", "string", "产线ID，如 'SMT-03'", required=True),
+            ToolParameter(
+                "metric",
+                "enum",
+                "查询指标",
+                required=True,
+                enum_values=["oee", "yield", "output", "cycle_time", "throughput"],
+            ),
+            ToolParameter(
+                "time_range",
+                "string",
+                "时间范围，如 'today', 'yesterday', '7d', '2024-01-01~2024-01-07'",
+                default="today",
+            ),
+            ToolParameter(
+                "granularity",
+                "enum",
+                "数据粒度",
+                enum_values=["raw", "hourly", "shift", "daily"],
+                default="hourly",
+            ),
+        ],
+        returns="timeseries_data",
+        examples=[
+            "query_production_data(line_id='SMT-03', metric='oee', time_range='today')",
+            "query_production_data("
+            "line_id='ASM-01', metric='yield', time_range='7d', granularity='daily'"
+            ")",
+        ],
+    )
+)
 
 register_tool(MCPTool(
     name="query_wip",
@@ -191,19 +209,35 @@ register_tool(MCPTool(
 
 # --- Analysis Tools ---
 
-register_tool(MCPTool(
-    name="analyze_root_cause",
-    description="触发根因分析，分析品质或设备异常的根本原因",
-    category=ToolCategory.ANALYSIS,
-    safety_level=SafetyLevel.ADVISORY,
-    parameters=[
-        ToolParameter("issue_type", "enum", "问题类型", required=True,
-                      enum_values=["yield_drop", "equipment_failure", "quality_anomaly", "throughput_decline"]),
-        ToolParameter("context", "object", "上下文信息（产线、时间范围、相关指标等）"),
-    ],
-    returns="root_cause_report",
-    examples=["analyze_root_cause(issue_type='yield_drop', context={'line': 'SMT-05', 'time_range': '3d'})"],
-))
+register_tool(
+    MCPTool(
+        name="analyze_root_cause",
+        description="触发根因分析，分析品质或设备异常的根本原因",
+        category=ToolCategory.ANALYSIS,
+        safety_level=SafetyLevel.ADVISORY,
+        parameters=[
+            ToolParameter(
+                "issue_type",
+                "enum",
+                "问题类型",
+                required=True,
+                enum_values=[
+                    "yield_drop",
+                    "equipment_failure",
+                    "quality_anomaly",
+                    "throughput_decline",
+                ],
+            ),
+            ToolParameter("context", "object", "上下文信息（产线、时间范围、相关指标等）"),
+        ],
+        returns="root_cause_report",
+        examples=[
+            "analyze_root_cause("
+            "issue_type='yield_drop', context={'line': 'SMT-05', 'time_range': '3d'}"
+            ")"
+        ],
+    )
+)
 
 # --- Action Tools (require human approval) ---
 
