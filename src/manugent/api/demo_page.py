@@ -6,43 +6,59 @@ DEMO_HTML = """<!doctype html>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ManuGent MES Agent</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.3/p5.min.js"></script>
   <style>
     :root {
-      --bg: #f7f3ea;
-      --panel: #fffdf7;
-      --ink: #1b2622;
-      --muted: #6e7a73;
-      --line: #ded5c5;
-      --soft: #eee7d8;
-      --green: #17734f;
-      --amber: #c77a25;
-      --red: #b44444;
-      --blue: #315f86;
-      --shadow: 0 24px 70px rgba(30, 25, 16, 0.12);
+      --bg: #08090a;
+      --surface: rgba(15, 16, 17, 0.78);
+      --surface-strong: rgba(25, 26, 27, 0.94);
+      --line: rgba(255, 255, 255, 0.08);
+      --line-strong: rgba(255, 255, 255, 0.16);
+      --text: #f7f8f8;
+      --muted: #8a8f98;
+      --soft: #d0d6e0;
+      --violet: #7170ff;
+      --green: #27a644;
+      --amber: #ffb84d;
+      --red: #ff6b6b;
+      --shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--bg);
+    }
 
     body {
       margin: 0;
       min-height: 100vh;
-      color: var(--ink);
-      font-family: ui-serif, "Noto Serif SC", "Songti SC", Georgia, serif;
+      color: var(--text);
       background:
-        radial-gradient(circle at 15% 5%, rgba(199, 122, 37, 0.18), transparent 26rem),
-        radial-gradient(circle at 85% 10%, rgba(23, 115, 79, 0.14), transparent 24rem),
-        linear-gradient(135deg, #f9f6ee 0%, #efe5d2 100%);
+        radial-gradient(circle at 20% -10%, rgba(113, 112, 255, 0.24), transparent 32rem),
+        radial-gradient(circle at 80% 0%, rgba(39, 166, 68, 0.12), transparent 28rem),
+        linear-gradient(180deg, #08090a 0%, #0f1011 58%, #08090a 100%);
+      font-family: Inter, "Noto Sans SC", system-ui, sans-serif;
+      font-feature-settings: "cv01", "ss03";
+      overflow-x: hidden;
     }
 
-    button,
-    textarea {
-      font: inherit;
+    #factory-field {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.78;
     }
 
     .shell {
-      width: min(1160px, calc(100vw - 32px));
+      position: relative;
+      z-index: 1;
+      width: min(1200px, calc(100vw - 32px));
       margin: 0 auto;
-      padding: 28px 0 48px;
+      padding: 24px 0 48px;
     }
 
     .topbar {
@@ -50,145 +66,166 @@ DEMO_HTML = """<!doctype html>
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 36px;
-      color: #37443e;
-      font-family: ui-sans-serif, "Noto Sans SC", system-ui, sans-serif;
+      margin-bottom: 74px;
+      color: var(--soft);
     }
 
     .brand {
       display: flex;
       align-items: center;
       gap: 10px;
-      font-weight: 800;
-      letter-spacing: -0.03em;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
     }
 
     .mark {
-      width: 30px;
-      height: 30px;
+      width: 26px;
+      height: 26px;
       display: grid;
       place-items: center;
-      color: #fff8e8;
-      background: var(--green);
-      border-radius: 10px;
-      font-size: 13px;
-      box-shadow: 0 10px 24px rgba(23, 115, 79, 0.24);
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      color: white;
+      background: rgba(113, 112, 255, 0.22);
+      box-shadow: 0 0 24px rgba(113, 112, 255, 0.28);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
     }
 
-    .topbar span {
+    .top-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .top-meta span {
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
       color: var(--muted);
-      font-size: 13px;
+      background: rgba(255, 255, 255, 0.025);
+      font-size: 12px;
     }
 
     .hero {
+      max-width: 900px;
+      margin: 0 auto 22px;
       text-align: center;
-      margin: 0 auto 26px;
-      max-width: 860px;
     }
 
     h1 {
       margin: 0;
-      font-size: clamp(42px, 7vw, 78px);
+      font-size: clamp(46px, 8vw, 90px);
+      font-weight: 500;
       line-height: 0.96;
-      letter-spacing: -0.07em;
-      font-weight: 760;
+      letter-spacing: -0.075em;
+      color: #f7f8f8;
+      text-wrap: balance;
     }
 
     .subtitle {
-      max-width: 680px;
-      margin: 18px auto 0;
+      max-width: 670px;
+      margin: 22px auto 0;
       color: var(--muted);
-      font-size: 18px;
+      font-size: 17px;
       line-height: 1.8;
+      letter-spacing: -0.01em;
     }
 
-    .ask-card {
-      position: sticky;
-      top: 16px;
-      z-index: 2;
-      margin: 0 auto;
-      max-width: 900px;
-      padding: 12px;
-      border: 1px solid rgba(39, 48, 43, 0.12);
-      border-radius: 28px;
-      background: rgba(255, 253, 247, 0.88);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
+    .ask {
+      max-width: 850px;
+      margin: 32px auto 0;
+      border: 1px solid var(--line-strong);
+      border-radius: 26px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025)),
+        rgba(15, 16, 17, 0.8);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(20px);
+      overflow: hidden;
     }
 
-    .composer {
+    .input-row {
       display: grid;
       grid-template-columns: 1fr auto;
       gap: 10px;
       align-items: end;
+      padding: 12px;
     }
 
     textarea {
       width: 100%;
-      min-height: 62px;
-      max-height: 180px;
+      min-height: 82px;
+      max-height: 190px;
       resize: vertical;
       border: 0;
       outline: 0;
-      padding: 16px 18px;
-      color: var(--ink);
+      color: var(--text);
       background: transparent;
+      padding: 16px 18px;
+      font: inherit;
       font-size: 17px;
       line-height: 1.7;
     }
 
-    .run-button {
-      min-width: 112px;
-      height: 54px;
+    textarea::placeholder {
+      color: #62666d;
+    }
+
+    .run {
+      width: 74px;
+      height: 56px;
       border: 0;
       border-radius: 18px;
-      color: #fff8e8;
-      background: linear-gradient(135deg, var(--green), #0c4f36);
+      color: white;
+      background: linear-gradient(135deg, #5e6ad2, #7170ff);
       cursor: pointer;
-      font-family: ui-sans-serif, "Noto Sans SC", system-ui, sans-serif;
-      font-weight: 800;
-      box-shadow: 0 14px 26px rgba(23, 115, 79, 0.22);
+      font: 700 14px Inter, sans-serif;
+      box-shadow: 0 16px 34px rgba(113, 112, 255, 0.28);
     }
 
-    .run-button:disabled {
+    .run:disabled {
       cursor: wait;
-      opacity: 0.62;
+      opacity: 0.56;
     }
 
-    .examples {
+    .prompts {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      padding: 2px 8px 8px;
-      font-family: ui-sans-serif, "Noto Sans SC", system-ui, sans-serif;
+      padding: 0 14px 14px;
     }
 
     .chip {
       border: 1px solid var(--line);
       border-radius: 999px;
-      background: #fffaf0;
-      color: #58645e;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.025);
       padding: 7px 10px;
       cursor: pointer;
-      font-size: 12px;
+      font: 500 12px Inter, sans-serif;
     }
 
     .chip:hover {
-      color: var(--green);
-      border-color: rgba(23, 115, 79, 0.32);
+      color: var(--soft);
+      border-color: rgba(113, 112, 255, 0.35);
+      background: rgba(113, 112, 255, 0.08);
     }
 
     .answer {
       display: grid;
-      gap: 18px;
-      margin-top: 34px;
+      gap: 16px;
+      margin-top: 28px;
     }
 
     .panel {
-      border: 1px solid rgba(39, 48, 43, 0.12);
-      border-radius: 30px;
-      background: rgba(255, 253, 247, 0.78);
-      box-shadow: 0 16px 46px rgba(30, 25, 16, 0.08);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: var(--surface);
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(20px);
       overflow: hidden;
     }
 
@@ -196,165 +233,185 @@ DEMO_HTML = """<!doctype html>
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      padding: 18px 22px;
-      border-bottom: 1px solid rgba(39, 48, 43, 0.09);
-      font-family: ui-sans-serif, "Noto Sans SC", system-ui, sans-serif;
+      gap: 14px;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
     }
 
     .panel-head h2 {
       margin: 0;
-      font-size: 16px;
-      letter-spacing: -0.02em;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
     }
 
     .meta {
       color: var(--muted);
-      font-size: 13px;
+      font-size: 12px;
+      text-align: right;
     }
 
     .summary {
-      padding: 24px;
-      font-size: clamp(20px, 2.4vw, 30px);
+      padding: 22px;
+      color: #e9ecef;
+      font-size: clamp(20px, 2.2vw, 29px);
+      font-weight: 400;
       line-height: 1.55;
-      letter-spacing: -0.04em;
+      letter-spacing: -0.045em;
     }
 
-    .line-map {
-      padding: 24px;
+    .line-wrap {
+      padding: 22px;
     }
 
-    .line-track {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(120px, 1fr));
-      gap: 12px;
+    .line-stage {
       position: relative;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(130px, 1fr));
+      gap: 12px;
+    }
+
+    .line-stage::before {
+      content: "";
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      top: 44px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(113, 112, 255, 0.5), transparent);
     }
 
     .station {
       position: relative;
-      min-height: 176px;
-      padding: 16px;
+      min-height: 190px;
+      padding: 15px;
       border: 1px solid var(--line);
-      border-radius: 22px;
+      border-radius: 18px;
       background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(246, 238, 220, 0.72));
+        linear-gradient(180deg, rgba(255, 255, 255, 0.052), rgba(255, 255, 255, 0.02)),
+        #111214;
+      overflow: hidden;
     }
 
-    .station::after {
+    .station::before {
       content: "";
       position: absolute;
-      top: 42px;
-      right: -18px;
-      width: 24px;
-      height: 1px;
-      background: var(--line);
-    }
-
-    .station:last-child::after {
-      display: none;
+      inset: -1px;
+      border-radius: 18px;
+      opacity: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 65% 10%, rgba(113, 112, 255, 0.32), transparent 8rem);
+      transition: opacity 0.25s ease;
     }
 
     .station.issue {
-      border-color: rgba(180, 68, 68, 0.5);
-      background:
-        radial-gradient(circle at 80% 10%, rgba(180, 68, 68, 0.18), transparent 7rem),
-        linear-gradient(180deg, #fffdf7, #f6eadb);
+      border-color: rgba(255, 107, 107, 0.48);
+      box-shadow: inset 0 0 0 1px rgba(255, 107, 107, 0.08);
     }
 
-    .station.warning {
-      border-color: rgba(199, 122, 37, 0.5);
-      background:
-        radial-gradient(circle at 80% 10%, rgba(199, 122, 37, 0.18), transparent 7rem),
-        linear-gradient(180deg, #fffdf7, #f6eadb);
+    .station.issue::before {
+      opacity: 1;
+      background: radial-gradient(circle at 75% 8%, rgba(255, 107, 107, 0.26), transparent 8rem);
+    }
+
+    .station.signal {
+      border-color: rgba(255, 184, 77, 0.4);
+    }
+
+    .station.signal::before {
+      opacity: 1;
+      background: radial-gradient(circle at 75% 8%, rgba(255, 184, 77, 0.2), transparent 8rem);
     }
 
     .station.ok {
-      border-color: rgba(23, 115, 79, 0.24);
+      border-color: rgba(39, 166, 68, 0.18);
     }
 
-    .station-code {
+    .station-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .station-index {
       color: var(--muted);
-      font-family: ui-sans-serif, "Noto Sans SC", system-ui, sans-serif;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
     }
 
     .station-name {
-      margin-top: 8px;
+      margin-top: 10px;
+      color: var(--text);
       font-size: 20px;
-      font-weight: 760;
+      font-weight: 600;
       letter-spacing: -0.04em;
     }
 
     .station-desc {
-      margin-top: 8px;
+      margin-top: 7px;
+      min-height: 38px;
       color: var(--muted);
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.55;
     }
 
-    .badge {
+    .state {
       display: inline-flex;
-      margin-top: 12px;
-      padding: 6px 8px;
+      margin-top: 11px;
+      padding: 5px 8px;
       border-radius: 999px;
-      font-family: ui-sans-serif, "Noto Sans SC", system-ui, sans-serif;
       font-size: 11px;
-      font-weight: 800;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.05);
     }
 
-    .badge.issue {
-      color: #7d2020;
-      background: rgba(180, 68, 68, 0.13);
+    .state.issue {
+      color: #ffd6d6;
+      background: rgba(255, 107, 107, 0.16);
     }
 
-    .badge.warning {
-      color: #814907;
-      background: rgba(199, 122, 37, 0.14);
+    .state.signal {
+      color: #ffe2b2;
+      background: rgba(255, 184, 77, 0.14);
     }
 
-    .badge.ok {
-      color: #0b573b;
-      background: rgba(23, 115, 79, 0.12);
+    .state.ok {
+      color: #c8f6d2;
+      background: rgba(39, 166, 68, 0.12);
     }
 
     .node-note {
       margin-top: 12px;
-      color: #3d4a44;
-      font-size: 13px;
-      line-height: 1.55;
+      color: var(--soft);
+      font-size: 12px;
+      line-height: 1.58;
     }
 
     .details {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 18px;
+      gap: 16px;
     }
 
     .list {
-      padding: 20px 22px 22px;
       display: grid;
-      gap: 12px;
+      gap: 10px;
+      padding: 16px;
     }
 
     .item {
-      padding: 15px;
-      border: 1px solid rgba(39, 48, 43, 0.1);
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.52);
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.028);
     }
 
     .item-type {
-      color: var(--green);
-      font-family: ui-sans-serif, "Noto Sans SC", system-ui, sans-serif;
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
       margin-bottom: 7px;
+      color: var(--violet);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      text-transform: uppercase;
     }
 
     .item-type.boundary {
@@ -362,13 +419,13 @@ DEMO_HTML = """<!doctype html>
     }
 
     .item-text {
-      color: #304039;
+      color: var(--soft);
+      font-size: 13px;
       line-height: 1.65;
-      font-size: 14px;
     }
 
     .empty {
-      padding: 44px 24px;
+      padding: 46px 18px;
       color: var(--muted);
       text-align: center;
       line-height: 1.8;
@@ -379,84 +436,86 @@ DEMO_HTML = """<!doctype html>
       position: fixed;
       left: 50%;
       bottom: 24px;
+      z-index: 5;
       transform: translateX(-50%);
-      max-width: min(560px, calc(100vw - 32px));
-      padding: 12px 16px;
-      border-radius: 16px;
-      color: #fff8e8;
-      background: rgba(180, 68, 68, 0.94);
-      box-shadow: 0 20px 50px rgba(180, 68, 68, 0.26);
-      z-index: 20;
+      max-width: min(520px, calc(100vw - 28px));
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 107, 107, 0.32);
+      border-radius: 14px;
+      color: #ffecec;
+      background: rgba(80, 24, 24, 0.92);
+      box-shadow: 0 16px 50px rgba(0, 0, 0, 0.3);
     }
 
     .toast.show {
       display: block;
     }
 
-    @media (max-width: 980px) {
-      .line-track {
+    @media (max-width: 1040px) {
+      .line-stage {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .station::after {
+      .line-stage::before {
         display: none;
-      }
-
-      .details {
-        grid-template-columns: 1fr;
       }
     }
 
-    @media (max-width: 640px) {
-      .shell {
-        width: min(100vw - 20px, 1160px);
-        padding-top: 18px;
-      }
-
+    @media (max-width: 760px) {
       .topbar {
         align-items: flex-start;
         flex-direction: column;
-        margin-bottom: 24px;
+        margin-bottom: 48px;
       }
 
-      .composer {
+      .input-row,
+      .details {
         grid-template-columns: 1fr;
       }
 
-      .run-button {
+      .run {
         width: 100%;
       }
 
-      .line-track {
+      .line-stage {
         grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
+  <div id="factory-field"></div>
+
+  <main class="shell">
     <header class="topbar">
       <div class="brand">
         <div class="mark">M</div>
         <div>ManuGent</div>
       </div>
-      <span>MES Agent · 自然语言分析 · 产线问题定位</span>
+      <div class="top-meta">
+        <span>MES Agent</span>
+        <span>LangGraph RCA</span>
+        <span>Line Digital Twin</span>
+      </div>
     </header>
 
     <section class="hero">
-      <h1>问一句话，看懂整条产线。</h1>
+      <h1>Ask the line. See the root cause.</h1>
       <p class="subtitle">
-        像 ChatGPT 一样输入问题，ManuGent 会查询 MES 数据，把异常、证据和建议
-        动态落到产线节点上。
+        用一句自然语言询问 MES，系统把良率、质量、物料、设备与历史记忆
+        编排成证据链，并把异常定位到整条产线的具体节点。
       </p>
     </section>
 
-    <section class="ask-card">
-      <div class="composer">
-        <textarea id="question">SMT-03 最近 24 小时良率为什么下降？</textarea>
-        <button id="run-button" class="run-button" onclick="runRca()">分析</button>
+    <section class="ask">
+      <div class="input-row">
+        <textarea
+          id="question"
+          placeholder="例如：SMT-03 最近 24 小时良率为什么下降？"
+        >SMT-03 最近 24 小时良率为什么下降？</textarea>
+        <button id="run-button" class="run" onclick="runRca()">分析</button>
       </div>
-      <div class="examples">
+      <div class="prompts">
         <button class="chip" onclick="useExample('SMT-03 最近 24 小时良率为什么下降？')">
           良率下降
         </button>
@@ -472,54 +531,56 @@ DEMO_HTML = """<!doctype html>
     <section id="answer" class="answer">
       <article class="panel">
         <div class="empty">
-          输入一个 MES 现场问题后，系统会展示整条产线，并把问题和建议挂到对应节点。
+          输入 MES 现场问题后，产线会被点亮，异常证据和建议会挂到对应工序节点。
         </div>
       </article>
     </section>
-  </div>
+  </main>
 
   <div id="error" class="toast"></div>
 
   <script>
+    window.manuState = { active: false, issueNodes: [] };
+
     const stations = [
       {
         id: "printer",
-        code: "01",
+        code: "ST-01",
         name: "印刷",
-        desc: "锡膏印刷 / 批次输入",
+        desc: "锡膏印刷 / 物料批次输入",
         evidenceTypes: ["material"]
       },
       {
         id: "spi",
-        code: "02",
+        code: "ST-02",
         name: "SPI",
-        desc: "锡膏检测 / 早期质量信号",
+        desc: "锡膏厚度 / 早期质量信号",
         evidenceTypes: ["production", "quality", "material"]
       },
       {
         id: "mounter",
-        code: "03",
+        code: "ST-03",
         name: "贴片",
         desc: "MOUNTER-03A / 吸嘴与飞达",
         evidenceTypes: ["equipment"]
       },
       {
         id: "reflow",
-        code: "04",
+        code: "ST-04",
         name: "回流焊",
-        desc: "温区稳定性 / 焊接窗口",
+        desc: "温区曲线 / 焊接窗口",
         evidenceTypes: []
       },
       {
         id: "aoi",
-        code: "05",
+        code: "ST-05",
         name: "AOI",
         desc: "缺陷检出 / 良率结果",
         evidenceTypes: ["quality", "production"]
       },
       {
         id: "pack",
-        code: "06",
+        code: "ST-06",
         name: "包装",
         desc: "放行 / 返工 / 出货",
         evidenceTypes: []
@@ -555,6 +616,7 @@ DEMO_HTML = """<!doctype html>
       const button = document.getElementById("run-button");
       button.disabled = isLoading;
       button.textContent = isLoading ? "分析中" : "分析";
+      window.manuState.active = isLoading;
     }
 
     function setError(message) {
@@ -569,30 +631,36 @@ DEMO_HTML = """<!doctype html>
       if (related.some(item => ["quality", "equipment", "material"].includes(item.type))) {
         return { status: "issue", related };
       }
-      return { status: "warning", related };
+      return { status: "signal", related };
     }
 
     function renderLineMap(data) {
       const evidence = data.evidence || [];
-      return stations.map(station => {
+      const issueNodes = [];
+      const html = stations.map(station => {
         const result = stationStatus(station, evidence);
-        const badgeText = {
-          ok: "运行链路",
-          warning: "指标波动",
+        const stateText = {
+          ok: "链路正常",
+          signal: "指标波动",
           issue: "问题关联"
         }[result.status];
         const note = result.related[0]?.summary || "当前问题未直接指向该节点。";
+        if (result.status === "issue") issueNodes.push(station.id);
 
         return `
-          <div class="station ${result.status}">
-            <div class="station-code">${station.code} · ${station.id}</div>
-            <div class="station-name">${station.name}</div>
-            <div class="station-desc">${station.desc}</div>
-            <div class="badge ${result.status}">${badgeText}</div>
-            <div class="node-note">${escapeHtml(note)}</div>
+          <div class="station ${result.status}" data-station="${station.id}">
+            <div class="station-content">
+              <div class="station-index">${station.code}</div>
+              <div class="station-name">${station.name}</div>
+              <div class="station-desc">${station.desc}</div>
+              <div class="state ${result.status}">${stateText}</div>
+              <div class="node-note">${escapeHtml(note)}</div>
+            </div>
           </div>
         `;
       }).join("");
+      window.manuState.issueNodes = issueNodes;
+      return html;
     }
 
     function renderEvidence(data) {
@@ -618,25 +686,25 @@ DEMO_HTML = """<!doctype html>
       `).join("");
     }
 
-    function renderReport(data, question, lineId, timeRange) {
+    function renderReport(data, lineId, timeRange) {
       const confidence = Math.round((data.confidence || 0) * 100);
       document.getElementById("answer").innerHTML = `
         <article class="panel">
           <div class="panel-head">
             <h2>AI 分析结论</h2>
             <span class="meta">${escapeHtml(lineId)} · ${escapeHtml(timeRange)}
-              · 置信度 ${confidence}%</span>
+              · ${confidence}% confidence</span>
           </div>
           <div class="summary">${escapeHtml(data.finding)}</div>
         </article>
 
         <article class="panel">
           <div class="panel-head">
-            <h2>产线定位图</h2>
-            <span class="meta">问题会落在对应工艺节点上</span>
+            <h2>产线数字孪生视图</h2>
+            <span class="meta">异常证据会落到具体工序节点</span>
           </div>
-          <div class="line-map">
-            <div class="line-track">${renderLineMap(data)}</div>
+          <div class="line-wrap">
+            <div class="line-stage">${renderLineMap(data)}</div>
           </div>
         </article>
 
@@ -644,19 +712,20 @@ DEMO_HTML = """<!doctype html>
           <article class="panel">
             <div class="panel-head">
               <h2>证据链</h2>
-              <span class="meta">${(data.evidence || []).length} 条</span>
+              <span class="meta">${(data.evidence || []).length} records</span>
             </div>
             <div class="list">${renderEvidence(data)}</div>
           </article>
           <article class="panel">
             <div class="panel-head">
               <h2>建议动作</h2>
-              <span class="meta">${(data.recommendations || []).length} 条</span>
+              <span class="meta">${(data.recommendations || []).length} actions</span>
             </div>
             <div class="list">${renderActions(data)}</div>
           </article>
         </section>
       `;
+      window.manuState.active = true;
     }
 
     async function runRca() {
@@ -685,9 +754,10 @@ DEMO_HTML = """<!doctype html>
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-        renderReport(data, question, lineId, timeRange);
+        renderReport(data, lineId, timeRange);
       } catch (error) {
         setError(`分析失败：${error.message}`);
+        window.manuState.active = false;
       } finally {
         setLoading(false);
       }
@@ -698,6 +768,60 @@ DEMO_HTML = """<!doctype html>
         runRca();
       }
     });
+
+    let streams = [];
+
+    function setup() {
+      const canvas = createCanvas(windowWidth, windowHeight);
+      canvas.parent("factory-field");
+      pixelDensity(1);
+      for (let i = 0; i < 46; i++) {
+        streams.push({
+          x: random(width),
+          y: random(height),
+          speed: random(0.35, 1.2),
+          size: random(1.2, 2.8),
+          phase: random(TAU)
+        });
+      }
+    }
+
+    function draw() {
+      clear();
+      noFill();
+      stroke(113, 112, 255, 14);
+      strokeWeight(1);
+      for (let x = -40; x < width + 40; x += 70) line(x, 0, x + 120, height);
+      for (let y = 80; y < height; y += 86) line(0, y, width, y + 18);
+
+      const activeBoost = window.manuState.active ? 1.8 : 1;
+      for (const stream of streams) {
+        stream.x += stream.speed * activeBoost;
+        stream.y += sin(frameCount * 0.012 + stream.phase) * 0.16;
+        if (stream.x > width + 20) {
+          stream.x = -20;
+          stream.y = random(height);
+        }
+
+        const glow = window.manuState.active ? 120 : 58;
+        noStroke();
+        fill(113, 112, 255, glow);
+        circle(stream.x, stream.y, stream.size);
+        fill(39, 166, 68, glow * 0.42);
+        circle(stream.x - 18, stream.y + 9, stream.size * 0.7);
+      }
+
+      if (window.manuState.issueNodes.length) {
+        const pulse = 40 + sin(frameCount * 0.06) * 28;
+        fill(255, 107, 107, pulse);
+        noStroke();
+        circle(width * 0.74, height * 0.22, 160 + pulse);
+      }
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
   </script>
 </body>
 </html>
