@@ -157,6 +157,7 @@ class LangGraphRootCauseWorkflow:
             evidence=evidence,
             recommendations=self.base_workflow._recommend_actions(evidence),
         )
+        self.base_workflow._persist_report(report)
         return {
             "report": report,
             "steps": [*state.get("steps", []), "build_report"],

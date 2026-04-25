@@ -35,6 +35,7 @@ ManuGent 方式：
 | Agent 工具协议 | MES 能力被封装成 typed tools，LLM 不直接访问数据库 |
 | 根因分析工作流 | RCA workflow 生成 production / quality / material / equipment / memory 证据链 |
 | LangGraph 编排 | 把 RCA 拆成 query_production → query_quality → query_equipment → build_evidence → build_report |
+| Workflow Registry | 统一注册、发现和运行制造诊断 workflow |
 | 记忆架构 | 参考 ChatGPT 记忆逻辑，映射为 session、incident、factory fact、preference、audit |
 | REST 适配 | 通过 YAML 把标准 MES tools 映射到企业现有 REST API |
 | 会话隔离 | API `session_id` 对应独立 Agent history 和 memory scope |
@@ -109,6 +110,13 @@ Web Demo 会调用：
 POST /workflows/root-cause/yield-drop
 ```
 
+通用 workflow API：
+
+```text
+GET /workflows
+POST /workflows/{workflow_id}/run
+```
+
 ## 5. 不依赖 LLM 的演示脚本
 
 这些脚本可以直接展示 MES Agent 的核心能力：
@@ -125,6 +133,16 @@ PYTHONPATH=src python3 examples/demo_sqlite_memory.py
 ## 6. API 示例
 
 ### 根因分析 Workflow
+
+通用入口：
+
+```bash
+curl -X POST http://localhost:8000/workflows/yield_drop/run \\
+  -H "Content-Type: application/json" \\
+  -d '{"params":{"line_id":"SMT-03","time_range":"24h"},"session_id":"demo"}'
+```
+
+兼容入口：
 
 ```bash
 curl -X POST http://localhost:8000/workflows/root-cause/yield-drop \\
@@ -152,6 +170,7 @@ curl -X POST http://localhost:8000/query \\
 - [项目故事：为什么需要 MES Agent](docs/PROJECT_STORY_ZH.md)
 - [架构介绍图](docs/ARCHITECTURE_DIAGRAM.md)
 - [MES 领域模型](docs/MES_DOMAIN_MODEL.md)
+- [Workflow Registry](docs/WORKFLOW_REGISTRY.md)
 - [根因分析工作流](docs/ROOT_CAUSE_WORKFLOW.md)
 - [REST Connector YAML 映射](docs/REST_CONNECTOR_MAPPING.md)
 - [记忆、会话和持久化](docs/SESSION_AND_PERSISTENCE.md)
@@ -167,6 +186,7 @@ curl -X POST http://localhost:8000/query \\
 - Manufacturing tool registry
 - Domain models
 - Root Cause Workflow
+- Workflow Registry
 - LangGraph RCA orchestration
 - Evidence Chain
 - Memory model

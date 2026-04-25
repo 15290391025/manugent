@@ -300,6 +300,42 @@ async def test_root_cause_workflow_persists_report_memory():
 
 
 @pytest.mark.asyncio
+async def test_workflow_registry_runs_yield_drop_by_alias():
+    """Test workflow registry discovers and runs the built-in RCA workflow."""
+    from manugent.connector.demo import DemoMESConnector
+    from manugent.workflows import create_default_workflow_registry
+
+    registry = create_default_workflow_registry()
+    connector = DemoMESConnector()
+    await connector.connect()
+
+    workflows = registry.list()
+    report = await registry.run(
+        "yield_drop",
+        connector,
+        {"line_id": "SMT-03"},
+    )
+
+    assert workflows[0].workflow_id == "root_cause.yield_drop"
+    assert report.incident_type == "yield_drop"
+    assert report.line_id == "SMT-03"
+
+
+@pytest.mark.asyncio
+async def test_workflow_registry_validates_required_params():
+    """Test workflow registry rejects missing required parameters."""
+    from manugent.connector.demo import DemoMESConnector
+    from manugent.workflows import create_default_workflow_registry
+
+    registry = create_default_workflow_registry()
+    connector = DemoMESConnector()
+    await connector.connect()
+
+    with pytest.raises(ValueError, match="line_id"):
+        await registry.run("root_cause.yield_drop", connector, {})
+
+
+@pytest.mark.asyncio
 async def test_langgraph_root_cause_workflow_steps():
     """Test LangGraph RCA workflow keeps orchestration steps explicit."""
     pytest.importorskip("langgraph")
@@ -326,6 +362,33 @@ async def test_langgraph_root_cause_workflow_steps():
     assert EvidenceType.PRODUCTION in evidence_types
     assert EvidenceType.QUALITY in evidence_types
     assert EvidenceType.EQUIPMENT in evidence_types
+
+
+def test_api_workflow_registry_endpoints(monkeypatch, tmp_path):
+    """Test API can list and run registered workflows."""
+    from fastapi.testclient import TestClient
+
+    from manugent.api.server import app
+
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("MES_TYPE", "demo")
+    monkeypatch.setenv("MEMORY_DB_PATH", str(tmp_path / "memory.sqlite3"))
+
+    with TestClient(app) as client:
+        listed = client.get("/workflows")
+        ran = client.post(
+            "/workflows/yield_drop/run",
+            json={
+                "params": {"line_id": "SMT-03", "time_range": "24h"},
+                "session_id": "api-test",
+            },
+        )
+
+    assert listed.status_code == 200
+    assert listed.json()["workflows"][0]["workflow_id"] == "root_cause.yield_drop"
+    assert ran.status_code == 200
+    assert ran.json()["workflow_id"] == "root_cause.yield_drop"
+    assert ran.json()["result"]["line_id"] == "SMT-03"
 
 
 def test_sqlite_memory_store_persists_records(tmp_path):

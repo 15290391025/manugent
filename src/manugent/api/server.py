@@ -27,7 +27,7 @@ from manugent.connector.factory import create_connector
 from manugent.memory import SQLiteMemoryStore
 from manugent.protocol.tools import MANUFACTURING_TOOLS, list_tools
 from manugent.security import ApprovalDecision, ApprovalQueue, verify_bearer_token
-from manugent.workflows import RootCauseWorkflow
+from manugent.workflows import WorkflowRegistry, create_default_workflow_registry
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 _session_manager: AgentSessionManager | None = None
 _approval_queue: ApprovalQueue | None = None
 _settings: Settings | None = None
+_workflow_registry: WorkflowRegistry | None = None
 
 
 # ============================================
@@ -105,6 +106,12 @@ class YieldDropWorkflowRequest(BaseModel):
     session_id: str | None = Field(default=None, description="Session ID for memory scope")
 
 
+class WorkflowRunRequest(BaseModel):
+    """Generic workflow run request."""
+    params: dict[str, Any] = Field(default_factory=dict, description="Workflow parameters")
+    session_id: str | None = Field(default=None, description="Session ID for memory scope")
+
+
 # ============================================
 # App Lifecycle
 # ============================================
@@ -112,7 +119,7 @@ class YieldDropWorkflowRequest(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    global _approval_queue, _session_manager, _settings
+    global _approval_queue, _session_manager, _settings, _workflow_registry
 
     # Startup
     _settings = Settings.from_env()
@@ -132,6 +139,7 @@ async def lifespan(app: FastAPI):
     )
     memory_store = SQLiteMemoryStore(_settings.db.memory_db_path)
     _approval_queue = ApprovalQueue()
+    _workflow_registry = create_default_workflow_registry()
 
     def llm_factory():
         return _settings.llm.get_llm()
@@ -276,21 +284,66 @@ async def query(request: QueryRequest):
 @app.post("/workflows/root-cause/yield-drop")
 async def yield_drop_root_cause(request: YieldDropWorkflowRequest):
     """Run deterministic yield-drop RCA workflow and return evidence chain."""
+    params = {"line_id": request.line_id, "time_range": request.time_range}
+    result = await _run_workflow(
+        "root_cause.yield_drop",
+        params=params,
+        session_id=request.session_id,
+    )
+    return result["result"]
+
+
+@app.get("/workflows")
+async def list_workflows():
+    """List registered manufacturing workflows."""
+    if not _workflow_registry:
+        raise HTTPException(status_code=503, detail="Workflow registry not initialized")
+    return {"workflows": [workflow.to_dict() for workflow in _workflow_registry.list()]}
+
+
+@app.post("/workflows/{workflow_id}/run")
+async def run_workflow(workflow_id: str, request: WorkflowRunRequest):
+    """Run any registered manufacturing workflow by ID or alias."""
+    return await _run_workflow(
+        workflow_id,
+        params=request.params,
+        session_id=request.session_id,
+    )
+
+
+async def _run_workflow(
+    workflow_id: str,
+    *,
+    params: dict[str, Any],
+    session_id: str | None,
+) -> dict[str, Any]:
+    """Run a workflow through the configured connector and memory scope."""
     if not _session_manager:
         raise HTTPException(status_code=503, detail="Agent not initialized")
+    if not _workflow_registry:
+        raise HTTPException(status_code=503, detail="Workflow registry not initialized")
 
-    agent = _session_manager.get(request.session_id)
+    agent = _session_manager.get(session_id)
     await agent.config.connector.connect()
-    workflow = RootCauseWorkflow(
-        agent.config.connector,
-        memory_store=agent.config.memory_store,
-        memory_scope=agent.config.memory_scope,
-    )
-    report = await workflow.analyze_yield_drop(
-        line_id=request.line_id,
-        time_range=request.time_range,
-    )
-    return report.to_dict()
+    try:
+        report = await _workflow_registry.run(
+            workflow_id,
+            agent.config.connector,
+            params,
+            memory_store=agent.config.memory_store,
+            memory_scope=agent.config.memory_scope,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    workflow = _workflow_registry.get(workflow_id)
+    return {
+        "workflow_id": workflow.workflow_id if workflow else workflow_id,
+        "status": "completed",
+        "result": report.to_dict(),
+    }
 
 
 @app.get("/tools", response_model=list[ToolInfo])
